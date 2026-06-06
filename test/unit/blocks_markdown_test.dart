@@ -32,6 +32,24 @@ void main() {
     });
   });
 
+  group('Nested lists', () {
+    test('decodes indentation levels', () {
+      final d = Markdown.parse('- a\n  - b\n  - c\n- d');
+      expect(d.length, 4);
+      expect(tb(d, 0).delta.toPlainText(), 'a');
+      expect(tb(d, 0).indent, 0);
+      expect(tb(d, 1).delta.toPlainText(), 'b');
+      expect(tb(d, 1).indent, 1);
+      expect(tb(d, 2).indent, 1);
+      expect(tb(d, 3).indent, 0);
+    });
+
+    test('round-trips nested lists', () {
+      const md = '- a\n  - b\n  - c\n- d';
+      expect(Markdown.serialize(Markdown.parse(md)), md);
+    });
+  });
+
   group('Numbered lists', () {
     test('decodes to numbered_list_item with numbers', () {
       final d = Markdown.parse('1. first\n2. second');

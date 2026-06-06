@@ -106,7 +106,8 @@ class MarkdownDecoder {
     return out;
   }
 
-  List<Node> _listItems(md.Element list, {required bool ordered}) {
+  List<Node> _listItems(md.Element list,
+      {required bool ordered, int indent = 0}) {
     final start = int.tryParse(list.attributes['start'] ?? '1') ?? 1;
     final out = <Node>[];
     var index = 0;
@@ -120,22 +121,31 @@ class MarkdownDecoder {
       // text-prefix is a fallback if the checkbox wasn't parsed.
       if (checked != null) {
         delta = _trimLeadingSpace(delta);
-        out.add(TextBlockNode.todo(checked: checked, delta: delta));
+        out.add(TextBlockNode.todo(checked: checked, delta: delta, indent: indent));
       } else {
         final plain = delta.toPlainText();
         if (plain.startsWith('[ ] ')) {
           out.add(TextBlockNode.todo(
-              checked: false, delta: delta.slice(4, delta.length)));
+              checked: false, delta: delta.slice(4, delta.length), indent: indent));
         } else if (plain.startsWith('[x] ') || plain.startsWith('[X] ')) {
           out.add(TextBlockNode.todo(
-              checked: true, delta: delta.slice(4, delta.length)));
+              checked: true, delta: delta.slice(4, delta.length), indent: indent));
         } else if (ordered) {
-          out.add(TextBlockNode.numbered(number: start + index, delta: delta));
+          out.add(TextBlockNode.numbered(
+              number: start + index, delta: delta, indent: indent));
         } else {
-          out.add(TextBlockNode.bullet(delta: delta));
+          out.add(TextBlockNode.bullet(delta: delta, indent: indent));
         }
       }
       index++;
+
+      // Recurse into nested lists inside this item.
+      for (final child in li.children ?? const <md.Node>[]) {
+        if (child is md.Element && (child.tag == 'ul' || child.tag == 'ol')) {
+          out.addAll(_listItems(child,
+              ordered: child.tag == 'ol', indent: indent + 1));
+        }
+      }
     }
     return out;
   }

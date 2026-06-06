@@ -663,13 +663,16 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
     final content = (_hasInlineMath(node) && !_isActiveBlock(node))
         ? _renderedContent(node, style)
         : _textContent(node, style);
+    Widget indented(Widget w) => node.indent > 0
+        ? Padding(padding: EdgeInsets.only(left: node.indent * 20.0), child: w)
+        : w;
     switch (node.type) {
       case BlockType.bulletedListItem:
-        return _gutterRow(_marker('•', style), content);
+        return indented(_gutterRow(_marker('•', style), content));
       case BlockType.numberedListItem:
-        return _gutterRow(_marker('${node.number ?? 1}.', style), content);
+        return indented(_gutterRow(_marker('${node.number ?? 1}.', style), content));
       case BlockType.todoListItem:
-        return _gutterRow(
+        return indented(_gutterRow(
           Padding(
             padding: const EdgeInsets.only(top: 2),
             child: SizedBox(
@@ -685,7 +688,7 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
             ),
           ),
           content,
-        );
+        ));
       case BlockType.footnoteDef:
         return _gutterRow(
           _marker('[${node.footnoteLabel ?? ''}]', style),

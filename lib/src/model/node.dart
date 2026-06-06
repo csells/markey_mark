@@ -97,27 +97,34 @@ final class TextBlockNode extends Node {
         attributes: {'level': level},
       );
 
-  factory TextBlockNode.bullet({String? id, Delta? delta}) => TextBlockNode(
+  factory TextBlockNode.bullet({String? id, Delta? delta, int indent = 0}) =>
+      TextBlockNode(
         id: id,
         type: BlockType.bulletedListItem,
         delta: delta ?? Delta.empty(),
+        attributes: {if (indent > 0) 'indent': indent},
       );
 
-  factory TextBlockNode.numbered({String? id, required int number, Delta? delta}) =>
+  factory TextBlockNode.numbered(
+          {String? id, required int number, Delta? delta, int indent = 0}) =>
       TextBlockNode(
         id: id,
         type: BlockType.numberedListItem,
         delta: delta ?? Delta.empty(),
-        attributes: {'number': number},
+        attributes: {'number': number, if (indent > 0) 'indent': indent},
       );
 
-  factory TextBlockNode.todo({String? id, bool checked = false, Delta? delta}) =>
+  factory TextBlockNode.todo(
+          {String? id, bool checked = false, Delta? delta, int indent = 0}) =>
       TextBlockNode(
         id: id,
         type: BlockType.todoListItem,
         delta: delta ?? Delta.empty(),
-        attributes: {'checked': checked},
+        attributes: {'checked': checked, if (indent > 0) 'indent': indent},
       );
+
+  /// List-item indentation depth (0 = top level).
+  int get indent => attributes['indent'] as int? ?? 0;
 
   factory TextBlockNode.quote({String? id, Delta? delta}) => TextBlockNode(
         id: id,

@@ -19,4 +19,6 @@ Bulleted and numbered lists.
 2. Second step
 ```
 
+Lists nest by indentation (two spaces per level), and round-trip with their nesting.
+
 See also [task lists](tasks.md) for checkable items.

@@ -84,11 +84,11 @@ class MarkdownEncoder {
           final level = (node.level ?? 1).clamp(1, 6);
           return '${'#' * level} $inline';
         case BlockType.bulletedListItem:
-          return '- $inline';
+          return '${'  ' * node.indent}- $inline';
         case BlockType.numberedListItem:
-          return '${node.number ?? 1}. $inline';
+          return '${'  ' * node.indent}${node.number ?? 1}. $inline';
         case BlockType.todoListItem:
-          return '- [${(node.checked ?? false) ? 'x' : ' '}] $inline';
+          return '${'  ' * node.indent}- [${(node.checked ?? false) ? 'x' : ' '}] $inline';
         case BlockType.quote:
           return '> $inline';
         case BlockType.footnoteDef:
