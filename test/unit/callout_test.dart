@@ -50,6 +50,21 @@ void main() {
       expect(out, src);
     });
 
+    test('a multi-paragraph callout round-trips idempotently', () {
+      const src = '> [!NOTE]\n> first\n>\n> second';
+      final once = Markdown.serialize(Markdown.parse(src));
+      final twice = Markdown.serialize(Markdown.parse(once));
+      expect(twice, once);
+      expect(once, src);
+    });
+
+    test('a callout followed by a plain quote stays separate', () {
+      const src = '> [!TIP]\n> hint\n\n> just a quote';
+      final twice =
+          Markdown.serialize(Markdown.parse(Markdown.serialize(Markdown.parse(src))));
+      expect(twice, src);
+    });
+
     test('exports a callout to HTML with kind class', () {
       final node = TextBlockNode.quote(
           delta: Delta.text('Heads up'), callout: 'caution');

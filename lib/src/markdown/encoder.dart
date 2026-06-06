@@ -42,7 +42,12 @@ class MarkdownEncoder {
   String _separatorBetween(Node a, Node b) {
     if (a is TextBlockNode && b is TextBlockNode) {
       if (_sameListFamily(a.type, b.type)) return '\n';
-      if (a.type == BlockType.quote && b.type == BlockType.quote) return '\n';
+      if (a.type == BlockType.quote && b.type == BlockType.quote) {
+        // Consecutive quote *paragraphs* re-parse as one block unless separated
+        // by a quoted blank line; a different callout kind starts a new
+        // blockquote entirely (a plain blank line).
+        return a.callout == b.callout ? '\n>\n' : '\n\n';
+      }
       // A definition term/desc is tight against a following description.
       if ((a.type == BlockType.definitionTerm ||
               a.type == BlockType.definitionDesc) &&

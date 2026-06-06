@@ -160,6 +160,13 @@ void main() {
       expect(quotes.length, greaterThanOrEqualTo(2));
     });
 
+    test('multi-paragraph blockquote round-trips idempotently', () {
+      const src = '> first\n>\n> second';
+      final once = Markdown.serialize(Markdown.parse(src));
+      expect(once, src);
+      expect(Markdown.serialize(Markdown.parse(once)), once);
+    });
+
     test('nested blockquote is flattened to quote blocks', () {
       final d = Markdown.parse('> outer\n>\n> > inner');
       expect(

@@ -98,4 +98,61 @@ void main() {
     );
     await teardown(tester);
   });
+
+  testWidgets('default SystemClipboardBridge round-trips via the platform',
+      (tester) async {
+    // Mock the platform clipboard so the real SystemClipboardBridge works.
+    String? clipboardText = 'pasted text';
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      SystemChannels.platform,
+      (call) async {
+        if (call.method == 'Clipboard.setData') {
+          clipboardText = (call.arguments as Map)['text'] as String?;
+        } else if (call.method == 'Clipboard.getData') {
+          return <String, dynamic>{'text': clipboardText};
+        }
+        return null;
+      },
+    );
+    addTearDown(() => tester.binding.defaultBinaryMessenger
+        .setMockMethodCallHandler(SystemChannels.platform, null));
+
+    final c = MarkdownEditorController(markdown: 'hello world');
+    addTearDown(c.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 600,
+            height: 400,
+            // Default clipboard bridge (SystemClipboardBridge).
+            child: MarkdownEditor(controller: c),
+          ),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.tap(
+        find.byKey(ValueKey('markey-block-${c.document.nodes.first.id}')));
+    await tester.pump();
+
+    // Copy 'hello' → the platform clipboard receives the markdown.
+    final id = c.document.nodes.first.id;
+    c.setSelection(DocumentSelection(
+      base: DocumentPosition.text(id, 0),
+      extent: DocumentPosition.text(id, 5),
+    ));
+    await tester.pump();
+    await press(tester, LogicalKeyboardKey.keyC);
+    expect(clipboardText, 'hello');
+
+    // Paste it back at the end.
+    clipboardText = ' again';
+    c.setSelection(DocumentSelection.collapsed(
+        DocumentPosition.text(c.document.nodes.first.id, 11)));
+    await tester.pump();
+    await press(tester, LogicalKeyboardKey.keyV);
+    expect(c.markdown, 'hello world again');
+    await teardown(tester);
+  });
 }
