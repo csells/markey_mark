@@ -46,9 +46,22 @@ sequenceDiagram
 ```
 ````
 
+## State diagrams
+
+State diagrams render natively too (reusing the flowchart layout):
+
+````markdown
+```mermaid
+stateDiagram-v2
+  [*] --> Idle
+  Idle --> Running : start
+  Running --> [*]
+```
+````
+
 ## Other types
 
-Diagram types the native engine doesn't yet support (e.g. class, state, gantt) degrade
+Diagram types the native engine doesn't yet support (e.g. class, gantt, ER) degrade
 gracefully to a readable **source card** with a `mermaid` badge:
 
 ![Mermaid source-card fallback](../images/mermaid.png)

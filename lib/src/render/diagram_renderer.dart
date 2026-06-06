@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../diagram/mermaid_flowchart.dart';
 import '../diagram/mermaid_pie.dart';
 import '../diagram/mermaid_sequence.dart';
+import '../diagram/mermaid_state.dart';
 import '../model/node.dart';
 import '../theme/editor_style.dart';
 
@@ -49,7 +50,7 @@ class NativeDiagramRenderer implements DiagramRenderer {
         ),
       );
     }
-    final flow = parseFlowchart(node.source);
+    final flow = parseFlowchart(node.source) ?? parseStateDiagram(node.source);
     if (flow != null) {
       return Container(
         key: ValueKey('markey-flowchart-${node.id}'),

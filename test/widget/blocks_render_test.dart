@@ -147,6 +147,15 @@ void main() {
     await teardown(tester);
   });
 
+  testWidgets('mermaid state diagram renders natively (reuses flowchart)',
+      (tester) async {
+    await pump(tester,
+        '```mermaid\nstateDiagram-v2\n[*] --> Idle\nIdle --> Running : go\n```');
+    expect(find.byType(FlowchartView), findsOneWidget);
+    expect(find.text('mermaid'), findsNothing);
+    await teardown(tester);
+  });
+
   testWidgets('an unsupported diagram type degrades to the source card',
       (tester) async {
     final c = await pump(tester, '```mermaid\nclassDiagram\nAnimal <|-- Dog\n```');

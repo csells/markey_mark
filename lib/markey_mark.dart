@@ -71,3 +71,4 @@ export 'src/diagram/mermaid_flowchart.dart'
         FlowShape,
         parseFlowchart,
         FlowchartView;
+export 'src/diagram/mermaid_state.dart' show parseStateDiagram;
