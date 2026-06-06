@@ -28,6 +28,7 @@ class HtmlEncoder {
   String convert(Document doc) {
     final out = <String>[];
     final nodes = doc.nodes;
+    final slugs = _SlugAllocator();
     var i = 0;
     while (i < nodes.length) {
       final node = nodes[i];
@@ -75,7 +76,7 @@ class HtmlEncoder {
             nodes.sublist(i, j).cast<TextBlockNode>()));
         i = j;
       } else {
-        final leaf = _leaf(node);
+        final leaf = _leaf(node, slugs);
         if (leaf != null) out.add(leaf);
         i++;
       }
@@ -85,7 +86,7 @@ class HtmlEncoder {
 
   // ---- leaf (non-grouped) blocks ----
 
-  String? _leaf(Node node) {
+  String? _leaf(Node node, _SlugAllocator slugs) {
     if (node is CodeBlockNode) {
       final cls =
           node.language != null ? ' class="language-${node.language}"' : '';
@@ -111,7 +112,8 @@ class HtmlEncoder {
       switch (node.type) {
         case BlockType.heading:
           final level = (node.level ?? 1).clamp(1, 6);
-          return '<h$level>$inline</h$level>';
+          final id = slugs.allocate(_slugify(node.delta.toPlainText()));
+          return '<h$level id="$id">$inline</h$level>';
         case BlockType.footnoteDef:
           return '<div class="footnote" id="fn-${node.footnoteLabel ?? ''}">'
               '<p>$inline</p></div>';
@@ -284,4 +286,24 @@ class HtmlEncoder {
       .replaceAll('>', '&gt;');
 
   static String _escapeAttr(String s) => _escape(s).replaceAll('"', '&quot;');
+
+  /// GitHub-style heading slug: lowercased, punctuation stripped, spaces → `-`.
+  static String _slugify(String text) {
+    var s = text.toLowerCase();
+    s = s.replaceAll(RegExp(r'[^\w\s-]'), '');
+    s = s.trim().replaceAll(RegExp(r'\s+'), '-');
+    return s;
+  }
+}
+
+/// Allocates unique heading slugs within one document, suffixing duplicates
+/// (`intro`, `intro-1`, `intro-2`, …) like GitHub does.
+class _SlugAllocator {
+  final Map<String, int> _counts = {};
+
+  String allocate(String base) {
+    final n = _counts[base] ?? 0;
+    _counts[base] = n + 1;
+    return n == 0 ? base : '$base-$n';
+  }
 }

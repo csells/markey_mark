@@ -6,9 +6,21 @@ String html(String markdown) =>
 
 void main() {
   group('HtmlEncoder', () {
-    test('headings', () {
-      expect(html('# Title'), '<h1>Title</h1>');
-      expect(html('### Three'), '<h3>Three</h3>');
+    test('headings carry a slug id for in-page links', () {
+      expect(html('# Title'), '<h1 id="title">Title</h1>');
+      expect(html('### Three'), '<h3 id="three">Three</h3>');
+    });
+
+    test('heading slugs lowercase, strip punctuation and hyphenate spaces', () {
+      expect(html('## Hello, World!'),
+          '<h2 id="hello-world">Hello, World!</h2>');
+    });
+
+    test('duplicate heading slugs get a numeric suffix', () {
+      expect(
+        html('# Intro\n\n# Intro'),
+        '<h1 id="intro">Intro</h1>\n<h1 id="intro-1">Intro</h1>',
+      );
     });
 
     test('paragraph with inline marks', () {
@@ -79,16 +91,16 @@ void main() {
     });
 
     test('full document joins blocks with newlines', () {
-      expect(html('# T\n\npara'), '<h1>T</h1>\n<p>para</p>');
+      expect(html('# T\n\npara'), '<h1 id="t">T</h1>\n<p>para</p>');
     });
 
     test('String.markdownToHtml extension', () {
-      expect('# Hi'.markdownToHtml(), '<h1>Hi</h1>');
+      expect('# Hi'.markdownToHtml(), '<h1 id="hi">Hi</h1>');
     });
 
     test('controller.toHtml serializes the live document', () {
       final c = MarkdownEditorController(markdown: '# Title\n\n**bold**');
-      expect(c.toHtml(), '<h1>Title</h1>\n<p><strong>bold</strong></p>');
+      expect(c.toHtml(), '<h1 id="title">Title</h1>\n<p><strong>bold</strong></p>');
       c.dispose();
     });
   });

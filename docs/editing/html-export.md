@@ -21,7 +21,7 @@ platform. The mapping:
 
 | Source | HTML |
 | --- | --- |
-| Headings | `<h1>`…`<h6>` |
+| Headings | `<h1 id="slug">`…`<h6 id="slug">` (GitHub-style slugs, deduplicated) |
 | Paragraphs | `<p>` |
 | Bold / italic / strikethrough | `<strong>` / `<em>` / `<del>` |
 | Inline code / code blocks | `<code>` / `<pre><code class="language-…">` |
