@@ -30,7 +30,7 @@ class MarkdownEncoder {
     final buf = StringBuffer();
     for (var i = 0; i < doc.nodes.length; i++) {
       if (i > 0) buf.write(_separatorBetween(doc.nodes[i - 1], doc.nodes[i]));
-      buf.write(_encodeBlock(doc.nodes[i]));
+      buf.write(_encodeBlock(doc.nodes[i], i > 0 ? doc.nodes[i - 1] : null));
     }
     return buf.toString();
   }
@@ -60,7 +60,7 @@ class MarkdownEncoder {
     return false;
   }
 
-  String _encodeBlock(Node node) {
+  String _encodeBlock(Node node, [Node? prev]) {
     if (node is CodeBlockNode) {
       return '```${node.language ?? ''}\n${node.code}\n```';
     }
@@ -96,7 +96,16 @@ class MarkdownEncoder {
         case BlockType.todoListItem:
           return '${'  ' * node.indent}- [${(node.checked ?? false) ? 'x' : ' '}] $inline';
         case BlockType.quote:
-          return '${'> ' * (node.indent + 1)}$inline';
+          final prefix = '> ' * (node.indent + 1);
+          final callout = node.callout;
+          // Emit the `> [!KIND]` marker once, before the first block of a run.
+          final isRunStart = !(prev is TextBlockNode &&
+              prev.type == BlockType.quote &&
+              prev.callout == callout);
+          final marker = (callout != null && isRunStart)
+              ? '> [!${callout.toUpperCase()}]\n'
+              : '';
+          return '$marker$prefix$inline';
         case BlockType.footnoteDef:
           return '[^${node.footnoteLabel ?? ''}]: $inline';
         case BlockType.definitionTerm:

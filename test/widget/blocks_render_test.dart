@@ -302,6 +302,15 @@ void main() {
     await teardown(tester);
   });
 
+  testWidgets('callout renders a titled alert box', (tester) async {
+    final c = await pump(tester, '> [!WARNING]\n> Be careful here.');
+    final id = c.document.nodes.first.id;
+    expect(find.byKey(ValueKey('markey-callout-$id')), findsOneWidget);
+    expect(find.text('Warning'), findsOneWidget);
+    expect(find.byIcon(Icons.warning_amber), findsOneWidget);
+    await teardown(tester);
+  });
+
   testWidgets('read-only task checkbox is disabled', (tester) async {
     await pump(tester, '- [ ] todo', readOnly: true);
     final checkbox = tester.widget<Checkbox>(find.byType(Checkbox));

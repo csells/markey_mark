@@ -719,6 +719,7 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
         return Padding(
             padding: const EdgeInsets.only(left: 20), child: content);
       case BlockType.quote:
+        if (node.callout != null) return _buildCallout(node, content);
         return Padding(
           padding: EdgeInsets.only(left: node.indent * 12.0),
           child: Container(
@@ -736,6 +737,57 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
       default:
         return content;
     }
+  }
+
+  /// GitHub-style alert/callout palette and icon per kind.
+  static const Map<String, (Color, IconData)> _calloutStyles = {
+    'note': (Color(0xFF0969DA), Icons.info_outline),
+    'tip': (Color(0xFF1A7F37), Icons.lightbulb_outline),
+    'important': (Color(0xFF8250DF), Icons.campaign_outlined),
+    'warning': (Color(0xFF9A6700), Icons.warning_amber),
+    'caution': (Color(0xFFCF222E), Icons.report_outlined),
+  };
+
+  Widget _buildCallout(TextBlockNode node, Widget content) {
+    final kind = node.callout!;
+    final (color, icon) =
+        _calloutStyles[kind] ?? (const Color(0xFF0969DA), Icons.info_outline);
+    // Show the title row only on the first block of a callout run.
+    final idx = _c.document.indexOfId(node.id);
+    final prev = idx > 0 ? _c.document.nodes[idx - 1] : null;
+    final isRunStart = !(prev is TextBlockNode &&
+        prev.type == BlockType.quote &&
+        prev.callout == kind);
+    final title = '${kind[0].toUpperCase()}${kind.substring(1)}';
+    return Container(
+      key: ValueKey('markey-callout-${node.id}'),
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.06),
+        border: Border(left: BorderSide(color: color, width: 4)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (isRunStart)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(icon, size: 16, color: color),
+                  const SizedBox(width: 6),
+                  Text(title,
+                      style: TextStyle(
+                          color: color, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ),
+          content,
+        ],
+      ),
+    );
   }
 
   Widget _gutterRow(Widget marker, Widget content) => Row(

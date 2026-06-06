@@ -45,15 +45,19 @@ class HtmlEncoder {
         var j = i;
         while (j < nodes.length &&
             nodes[j] is TextBlockNode &&
-            (nodes[j] as TextBlockNode).type == BlockType.quote) {
+            (nodes[j] as TextBlockNode).type == BlockType.quote &&
+            (nodes[j] as TextBlockNode).callout == node.callout) {
           j++;
         }
-        final lines = nodes
-            .sublist(i, j)
-            .cast<TextBlockNode>()
-            .map((n) => '<p>${_inline(n.delta)}</p>')
-            .join('\n');
-        out.add('<blockquote>\n$lines\n</blockquote>');
+        final quotes = nodes.sublist(i, j).cast<TextBlockNode>();
+        final lines =
+            quotes.map((n) => '<p>${_inline(n.delta)}</p>').join('\n');
+        final callout = quotes.first.callout;
+        if (callout != null) {
+          out.add('<div class="callout callout-$callout">\n$lines\n</div>');
+        } else {
+          out.add('<blockquote>\n$lines\n</blockquote>');
+        }
         i = j;
       } else if (node is TextBlockNode &&
           (node.type == BlockType.definitionTerm ||

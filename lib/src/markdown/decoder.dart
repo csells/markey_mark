@@ -186,7 +186,51 @@ class MarkdownDecoder {
       out.add(
           TextBlockNode.quote(delta: _mapInline(quote.children), indent: depth));
     }
-    return out;
+    return depth == 0 ? _applyCallout(out) : out;
+  }
+
+  static const Set<String> _calloutKinds = {
+    'note',
+    'tip',
+    'important',
+    'warning',
+    'caution',
+  };
+  static final RegExp _calloutRe = RegExp(r'^\[!([A-Za-z]+)\]');
+
+  /// If a top-level blockquote opens with a GitHub alert marker (`[!NOTE]`,
+  /// `[!TIP]`, …), strips the marker and tags every block in the quote with the
+  /// callout kind.
+  List<Node> _applyCallout(List<Node> out) {
+    if (out.isEmpty || out.first is! TextBlockNode) return out;
+    final first = out.first as TextBlockNode;
+    final text = first.delta.toPlainText();
+    final m = _calloutRe.firstMatch(text);
+    if (m == null) return out;
+    final kind = m.group(1)!.toLowerCase();
+    if (!_calloutKinds.contains(kind)) return out;
+
+    var stripLen = m.end;
+    if (stripLen < text.length && text[stripLen] == '\n') stripLen++;
+    final headDelta = first.delta.delete(0, stripLen);
+
+    final rebuilt = <Node>[];
+    if (headDelta.toPlainText().isNotEmpty) {
+      rebuilt.add(TextBlockNode.quote(
+          delta: headDelta, indent: first.indent, callout: kind));
+    }
+    for (final n in out.skip(1)) {
+      if (n is TextBlockNode) {
+        rebuilt.add(TextBlockNode.quote(
+            delta: n.delta, indent: n.indent, callout: kind));
+      } else {
+        rebuilt.add(n);
+      }
+    }
+    if (rebuilt.isEmpty) {
+      rebuilt.add(TextBlockNode.quote(delta: Delta.empty(), callout: kind));
+    }
+    return rebuilt;
   }
 
   /// If [p] contains only a single image (ignoring whitespace), returns it.

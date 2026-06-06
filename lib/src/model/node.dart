@@ -128,13 +128,22 @@ final class TextBlockNode extends Node {
   /// List-item indentation depth (0 = top level).
   int get indent => attributes['indent'] as int? ?? 0;
 
-  factory TextBlockNode.quote({String? id, Delta? delta, int indent = 0}) =>
+  factory TextBlockNode.quote(
+          {String? id, Delta? delta, int indent = 0, String? callout}) =>
       TextBlockNode(
         id: id,
         type: BlockType.quote,
         delta: delta ?? Delta.empty(),
-        attributes: {if (indent > 0) 'indent': indent},
+        attributes: {
+          if (indent > 0) 'indent': indent,
+          if (callout != null) 'callout': callout,
+        },
       );
+
+  /// For [BlockType.quote] blocks that are a GitHub-style alert/callout, the
+  /// kind: one of `note`, `tip`, `important`, `warning`, `caution`. Null for an
+  /// ordinary block quote.
+  String? get callout => attributes['callout'] as String?;
 
   factory TextBlockNode.definitionTerm({String? id, Delta? delta}) =>
       TextBlockNode(
