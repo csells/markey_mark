@@ -1,3 +1,4 @@
+import '../model/attributes.dart';
 import '../model/delta.dart';
 import '../model/document.dart';
 import '../model/node.dart';
@@ -166,6 +167,34 @@ class WrapInputRule extends InputRule {
   }
 }
 
+/// Auto-links a URL when a space is typed after it: `http://x ` → the URL
+/// becomes a link (text preserved, link mark applied).
+class LinkifyInputRule extends InputRule {
+  const LinkifyInputRule();
+  static final RegExp _pattern = RegExp(r'(https?://[^\s]+)\s$');
+
+  @override
+  EditTransaction? match(Document doc, DocumentSelection selection) {
+    final ctx = _RuleContext.caretInText(doc, selection);
+    if (ctx == null) return null;
+    final (node, index, offset, before) = ctx;
+    final m = _pattern.firstMatch(before);
+    if (m == null) return null;
+    final url = m.group(1)!;
+    final urlStart = offset - m.group(0)!.length;
+    final urlEnd = urlStart + url.length;
+    if (node.delta.attributesAt(urlEnd)[InlineAttr.link] == url) return null;
+    final newDelta =
+        node.delta.format(urlStart, urlEnd, {InlineAttr.link: url});
+    return EditTransaction(
+      operations: [ReplaceNodeOp(index, node, node.copyWithDelta(newDelta))],
+      selectionBefore: selection,
+      selectionAfter: selection,
+      tag: 'input-rule',
+    );
+  }
+}
+
 /// The default ordered rule set for the vertical slice.
 ///
 /// Bold uses `**…**`, italic `_…_`, inline code `` `…` ``, strike `~~…~~`. We
@@ -198,6 +227,7 @@ final List<InputRule> defaultInputRules = [
     build: (id, delta, _) => TextBlockNode.quote(id: id, delta: delta),
   ),
   const HorizontalRuleInputRule(),
+  const LinkifyInputRule(),
   // Inline wrap rules.
   WrapInputRule(pattern: RegExp(r'\*\*([^*]+)\*\*$'), attr: 'bold'),
   WrapInputRule(pattern: RegExp(r'~~([^~]+)~~$'), attr: 'strike'),

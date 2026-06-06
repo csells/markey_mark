@@ -163,6 +163,23 @@ void main() {
     });
   });
 
+  group('Linkify input rule', () {
+    test('a URL followed by a space becomes a link', () {
+      final doc = Document(
+          [TextBlockNode.paragraph(id: 'a', delta: Delta.text('see http://x.com '))]);
+      final txn = applyInputRules(doc, caret('a', 17), rules: defaultInputRules)!;
+      final node = blockOf(txn.apply(doc), 'a');
+      final run = node.delta.runs.firstWhere((r) => r.text == 'http://x.com');
+      expect(run.attributes['link'], 'http://x.com');
+    });
+
+    test('non-URL text is not linkified', () {
+      final doc =
+          Document([TextBlockNode.paragraph(id: 'a', delta: Delta.text('hello world '))]);
+      expect(applyInputRules(doc, caret('a', 12), rules: defaultInputRules), isNull);
+    });
+  });
+
   group('applyInputRules', () {
     test('returns null with no selection', () {
       final doc = Document.empty();

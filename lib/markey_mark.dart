@@ -38,6 +38,9 @@ export 'src/editing/input_rules.dart'
         InputRule,
         HeadingInputRule,
         WrapInputRule,
+        BlockPrefixInputRule,
+        HorizontalRuleInputRule,
+        LinkifyInputRule,
         defaultInputRules,
         applyInputRules;
 export 'src/editing/search.dart' show MatchLocation, findInDocument;
