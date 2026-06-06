@@ -1,4 +1,6 @@
+import '../model/delta.dart';
 import '../model/document.dart';
+import '../model/node.dart';
 import 'decoder.dart';
 import 'encoder.dart';
 
@@ -12,4 +14,13 @@ abstract final class Markdown {
 
   /// Serializes [document] to Markdown text.
   static String serialize(Document document) => _encoder.convert(document);
+
+  /// Parses an inline-Markdown fragment into a [Delta] (used for table cells).
+  static Delta inlineToDelta(String source) {
+    final first = _decoder.convert(source).nodes.first;
+    return first is TextBlockNode ? first.delta : Delta.empty();
+  }
+
+  /// Serializes a [Delta] to inline Markdown.
+  static String deltaToInline(Delta delta) => _encoder.encodeInline(delta);
 }

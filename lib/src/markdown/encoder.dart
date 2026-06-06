@@ -128,6 +128,9 @@ class MarkdownEncoder {
     return lines.join('\n');
   }
 
+  /// Serializes a single [Delta] to inline Markdown (used for table cells).
+  String encodeInline(Delta delta) => _encodeDelta(delta);
+
   String _encodeDelta(Delta delta) {
     final buf = StringBuffer();
     final open = <String>[]; // marks currently open, outer-first

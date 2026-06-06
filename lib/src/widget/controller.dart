@@ -9,7 +9,6 @@ import '../editing/input_rules.dart';
 import '../editing/operations.dart';
 import '../editing/search.dart';
 import '../editing/transaction.dart';
-import '../model/delta.dart';
 import '../model/document.dart';
 import '../model/node.dart';
 import '../model/position.dart';
@@ -207,9 +206,18 @@ class MarkdownEditorController extends ChangeNotifier {
     ));
   }
 
-  /// Sets the plain-text content of a table cell.
-  void updateTableCell(String tableId, int row, int col, String text) =>
-      _applyTable(tableId, (t) => t.withCell(row, col, Delta.text(text)));
+  /// Sets a table cell's content from an inline-Markdown string (so formatting
+  /// like `**bold**` and `[links](…)` round-trips).
+  void updateTableCell(String tableId, int row, int col, String markdown) =>
+      _applyTable(
+          tableId, (t) => t.withCell(row, col, Markdown.inlineToDelta(markdown)));
+
+  /// The inline-Markdown source of a table cell (for editing).
+  String cellMarkdown(String tableId, int row, int col) {
+    final node = document.nodeById(tableId);
+    if (node is! TableNode) return '';
+    return Markdown.deltaToInline(node.rows[row][col]);
+  }
 
   /// Appends an empty row to a table.
   void addTableRow(String tableId) =>

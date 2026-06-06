@@ -1128,7 +1128,7 @@ class _EditableTableState extends State<_EditableTable> {
 
   TextEditingController _cellController(int r, int c) {
     final k = _key(r, c);
-    final text = widget.node.cellText(r, c);
+    final text = widget.controller.cellMarkdown(widget.node.id, r, c);
     final ctl = _ctl.putIfAbsent(k, () => TextEditingController(text: text));
     final fn = _fn.putIfAbsent(k, () => FocusNode());
     if (!fn.hasFocus && ctl.text != text) ctl.text = text;

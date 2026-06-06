@@ -19,4 +19,4 @@ the table round-trips to clean Markdown.
 ## Editing
 
 Tables are **editable in place**: click any cell to edit it, and use the add-row / add-column
-buttons beneath the table to grow it. Every edit is undoable and reflected in the Markdown.
+buttons beneath the table to grow it. Cells accept inline Markdown (e.g. `**bold**`, `[links](…)`), so formatting round-trips. Every edit is undoable and reflected in the Markdown.
