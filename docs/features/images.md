@@ -11,3 +11,9 @@ fallback when a URL can't load).
 
 The `alt` text is used as the accessibility label and as the fallback shown if the image
 fails to load.
+
+## Inserting
+
+- **Slash menu:** type `/` and choose *Image* to insert a placeholder (then set the URL in
+  source mode).
+- **API:** `controller.insertImage(url, alt: 'description')`.

@@ -80,6 +80,12 @@ final List<SlashMenuItem> defaultSlashItems = [
     icon: Icons.horizontal_rule,
     apply: (c) => c.insertDivider(),
   ),
+  SlashMenuItem(
+    id: 'image',
+    label: 'Image',
+    icon: Icons.image,
+    apply: (c) => c.insertImage('https://example.com/image.png', alt: 'image'),
+  ),
 ];
 
 /// The slash menu overlay widget.

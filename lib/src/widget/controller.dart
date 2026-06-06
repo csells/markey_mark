@@ -172,6 +172,10 @@ class MarkdownEditorController extends ChangeNotifier {
   /// paragraph for the caret.
   void insertCodeBlock() => _replaceActiveWithAtomic(CodeBlockNode(code: ''));
 
+  /// Inserts an image block at the caret.
+  void insertImage(String url, {String? alt}) =>
+      _replaceActiveWithAtomic(ImageNode(url: url, alt: alt));
+
   void _replaceActiveWithAtomic(Node atomic) {
     _canRevertRule = false;
     final sel = selection;

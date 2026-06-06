@@ -94,6 +94,19 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets('selecting "Image" inserts an image block', (tester) async {
+    final c = await pump(tester);
+    tester.testTextInput.enterText('/image');
+    await tester.pump();
+    final item = find.byKey(const Key('markey_slash_item_image'));
+    await tester.ensureVisible(item);
+    await tester.pump();
+    await tester.tap(item);
+    await tester.pump();
+    expect(c.document.nodes.any((n) => n is ImageNode), isTrue);
+    await teardown(tester);
+  });
+
   testWidgets('Escape dismisses the menu', (tester) async {
     await pump(tester);
     tester.testTextInput.enterText('/');
