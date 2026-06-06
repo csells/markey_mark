@@ -7,6 +7,7 @@ import '../editing/input_rules.dart';
 import '../editing/operations.dart';
 import '../editing/search.dart';
 import '../editing/transaction.dart';
+import '../model/delta.dart';
 import '../model/document.dart';
 import '../model/node.dart';
 import '../model/position.dart';
@@ -176,6 +177,32 @@ class MarkdownEditorController extends ChangeNotifier {
       tag: 'insert-block',
     ));
   }
+
+  // ── Table editing ────────────────────────────────────────────────────────
+
+  void _applyTable(String tableId, TableNode Function(TableNode) update) {
+    _canRevertRule = false;
+    final node = document.nodeById(tableId);
+    if (node is! TableNode) return;
+    _editor.apply(EditTransaction(
+      operations: [ReplaceNodeOp(document.indexOfId(tableId), node, update(node))],
+      selectionBefore: selection,
+      selectionAfter: selection,
+      tag: 'table-edit',
+    ));
+  }
+
+  /// Sets the plain-text content of a table cell.
+  void updateTableCell(String tableId, int row, int col, String text) =>
+      _applyTable(tableId, (t) => t.withCell(row, col, Delta.text(text)));
+
+  /// Appends an empty row to a table.
+  void addTableRow(String tableId) =>
+      _applyTable(tableId, (t) => t.withAppendedRow());
+
+  /// Appends an empty column to a table.
+  void addTableColumn(String tableId) =>
+      _applyTable(tableId, (t) => t.withAppendedColumn());
 
   // ── Find & replace ───────────────────────────────────────────────────────
 

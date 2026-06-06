@@ -122,9 +122,11 @@ void main() {
     await teardown(tester);
   });
 
-  testWidgets('GFM table renders a Table widget with all cells', (tester) async {
+  testWidgets('read-only GFM table renders a Table widget with all cells',
+      (tester) async {
     final c = await pump(
-        tester, '| Name | Age |\n| --- | --- |\n| Ann | 30 |\n| Bob | 25 |');
+        tester, '| Name | Age |\n| --- | --- |\n| Ann | 30 |\n| Bob | 25 |',
+        readOnly: true);
     expect(find.byType(Table), findsOneWidget);
     // 3 rows x 2 cols = 6 rich-text cells.
     final cells = find.descendant(
@@ -135,6 +137,25 @@ void main() {
     final t = c.document.nodes.first as TableNode;
     expect(t.cellText(0, 0), 'Name');
     expect(t.cellText(2, 0), 'Bob');
+    await teardown(tester);
+  });
+
+  testWidgets('editable table: typing in a cell updates the model',
+      (tester) async {
+    final c = await pump(tester, '| A | B |\n| --- | --- |\n| 1 | 2 |');
+    final id = c.document.nodes.first.id;
+    await tester.enterText(find.byKey(Key('markey-cell-$id-0-0')), 'Name');
+    await tester.pump();
+    expect((c.document.nodes.first as TableNode).cellText(0, 0), 'Name');
+    await teardown(tester);
+  });
+
+  testWidgets('editable table: add-row button appends a row', (tester) async {
+    final c = await pump(tester, '| A | B |\n| --- | --- |\n| 1 | 2 |');
+    final id = c.document.nodes.first.id;
+    await tester.tap(find.byKey(Key('markey-table-addrow-$id')));
+    await tester.pump();
+    expect((c.document.nodes.first as TableNode).rowCount, 3);
     await teardown(tester);
   });
 

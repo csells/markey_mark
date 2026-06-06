@@ -13,6 +13,10 @@ GitHub-flavored tables with per-column alignment, rendered natively.
 | Math    | yes     |
 ```
 
-The alignment row (`:--`, `:-:`, `--:`) sets left / center / right alignment per column. Cells
-support inline formatting (e.g. **bold**, `code`, [links](links.md)), and the table
-round-trips to clean Markdown.
+The alignment row (`:--`, `:-:`, `--:`) sets left / center / right alignment per column, and
+the table round-trips to clean Markdown.
+
+## Editing
+
+Tables are **editable in place**: click any cell to edit it, and use the add-row / add-column
+buttons beneath the table to grow it. Every edit is undoable and reflected in the Markdown.

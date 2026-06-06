@@ -351,6 +351,38 @@ final class TableNode extends Node {
 
   String cellText(int row, int col) => rows[row][col].toPlainText();
 
+  /// Returns a copy with cell (row,col) replaced by [delta].
+  TableNode withCell(int row, int col, Delta delta) {
+    final newRows = [
+      for (var r = 0; r < rows.length; r++)
+        [
+          for (var c = 0; c < rows[r].length; c++)
+            (r == row && c == col) ? delta : rows[r][c]
+        ]
+    ];
+    return TableNode(id: id, rows: newRows, alignments: alignments, attributes: attributes);
+  }
+
+  /// Returns a copy with an empty row appended.
+  TableNode withAppendedRow() {
+    final newRow = [for (var c = 0; c < columnCount; c++) Delta.empty()];
+    return TableNode(
+        id: id, rows: [...rows, newRow], alignments: alignments, attributes: attributes);
+  }
+
+  /// Returns a copy with an empty (left-aligned-by-default) column appended.
+  TableNode withAppendedColumn() {
+    final newRows = [
+      for (final r in rows) [...r, Delta.empty()]
+    ];
+    return TableNode(
+      id: id,
+      rows: newRows,
+      alignments: [...alignments, TableAlign.none],
+      attributes: attributes,
+    );
+  }
+
   @override
   Node copyWith({Attributes? attributes}) => TableNode(
         id: id,

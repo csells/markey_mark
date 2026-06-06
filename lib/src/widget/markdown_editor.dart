@@ -566,7 +566,12 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
                       );
                     }
                     if (node is MathBlockNode) return _buildMath(node, style);
-                    if (node is TableNode) return _buildTable(node, style);
+                    if (node is TableNode) {
+                      return widget.readOnly
+                          ? _buildTable(node, style)
+                          : _EditableTable(
+                              node: node, style: style, controller: _c);
+                    }
                     if (node is MermaidNode) {
                       return widget.diagramRenderer.build(context, node, style);
                     }
@@ -1039,6 +1044,126 @@ class _BlockPainter extends CustomPainter {
       old.showCaret != showCaret ||
       old.selectionColor != selectionColor ||
       old.caretColor != caretColor;
+}
+
+// ── Editable table ─────────────────────────────────────────────────────────
+
+TextAlign _tableTextAlign(TableAlign a) => switch (a) {
+      TableAlign.center => TextAlign.center,
+      TableAlign.right => TextAlign.right,
+      _ => TextAlign.left,
+    };
+
+/// An editable GFM table: each cell is a [TextField] writing back to the model;
+/// buttons append rows/columns. Cell controllers persist across rebuilds so the
+/// caret is stable while typing.
+class _EditableTable extends StatefulWidget {
+  const _EditableTable(
+      {required this.node, required this.style, required this.controller});
+  final TableNode node;
+  final EditorStyle style;
+  final MarkdownEditorController controller;
+
+  @override
+  State<_EditableTable> createState() => _EditableTableState();
+}
+
+class _EditableTableState extends State<_EditableTable> {
+  final Map<String, TextEditingController> _ctl = {};
+  final Map<String, FocusNode> _fn = {};
+
+  String _key(int r, int c) => '${r}_$c';
+
+  @override
+  void dispose() {
+    for (final c in _ctl.values) {
+      c.dispose();
+    }
+    for (final f in _fn.values) {
+      f.dispose();
+    }
+    super.dispose();
+  }
+
+  TextEditingController _cellController(int r, int c) {
+    final k = _key(r, c);
+    final text = widget.node.cellText(r, c);
+    final ctl = _ctl.putIfAbsent(k, () => TextEditingController(text: text));
+    final fn = _fn.putIfAbsent(k, () => FocusNode());
+    if (!fn.hasFocus && ctl.text != text) ctl.text = text;
+    return ctl;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final node = widget.node;
+    final style = widget.style;
+    final borderColor = style.caretColor.withValues(alpha: 0.25);
+    return Container(
+      key: ValueKey('markey-block-${node.id}'),
+      alignment: Alignment.centerLeft,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Table(
+            defaultColumnWidth: const FixedColumnWidth(150),
+            border: TableBorder.all(color: borderColor),
+            children: [
+              for (var r = 0; r < node.rowCount; r++)
+                TableRow(
+                  decoration: r == 0
+                      ? BoxDecoration(color: borderColor.withValues(alpha: 0.12))
+                      : null,
+                  children: [
+                    for (var c = 0; c < node.columnCount; c++)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 2),
+                        child: TextField(
+                          key: Key('markey-cell-${node.id}-$r-$c'),
+                          controller: _cellController(r, c),
+                          focusNode: _fn[_key(r, c)],
+                          textAlign: _tableTextAlign(node.alignments[c]),
+                          style: r == 0
+                              ? style.baseTextStyle
+                                  .copyWith(fontWeight: FontWeight.bold)
+                              : style.baseTextStyle,
+                          decoration: const InputDecoration(
+                            isDense: true,
+                            border: InputBorder.none,
+                            contentPadding: EdgeInsets.symmetric(vertical: 6),
+                          ),
+                          onChanged: (t) =>
+                              widget.controller.updateTableCell(node.id, r, c, t),
+                        ),
+                      ),
+                  ],
+                ),
+            ],
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                key: Key('markey-table-addrow-${node.id}'),
+                tooltip: 'Add row',
+                iconSize: 18,
+                icon: const Icon(Icons.add_box_outlined),
+                onPressed: () => widget.controller.addTableRow(node.id),
+              ),
+              IconButton(
+                key: Key('markey-table-addcol-${node.id}'),
+                tooltip: 'Add column',
+                iconSize: 18,
+                icon: const Icon(Icons.add_box),
+                onPressed: () => widget.controller.addTableColumn(node.id),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 // ── Selection bubble toolbar ───────────────────────────────────────────────
