@@ -93,9 +93,11 @@ void main() {
           {'code': true});
     });
 
-    test('empty content does not match', () {
-      final doc = para('****');
-      expect(applyInputRules(doc, caret('a', 4), rules: defaultInputRules), isNull);
+    test('empty content does not match (no bold applied)', () {
+      // 'a****' avoids the horizontal-rule rule (which claims a pure `***+`
+      // line) while still presenting empty `**...**` to the bold rule.
+      final doc = para('a****');
+      expect(applyInputRules(doc, caret('a', 5), rules: defaultInputRules), isNull);
     });
 
     test('caret moves to end of unwrapped content', () {
@@ -103,6 +105,61 @@ void main() {
       final txn = applyInputRules(doc, caret('a', 7), rules: defaultInputRules)!;
       // 'x' + 'hi' = 3 chars.
       expect(txn.selectionAfter, caret('a', 3));
+    });
+  });
+
+  group('Block input rules', () {
+    Document para(String text) =>
+        Document([TextBlockNode.paragraph(id: 'a', delta: Delta.text(text))]);
+
+    test('"- " becomes a bulleted list item', () {
+      final doc = para('- ');
+      final txn = applyInputRules(doc, caret('a', 2), rules: defaultInputRules)!;
+      final node = blockOf(txn.apply(doc), 'a');
+      expect(node.type, BlockType.bulletedListItem);
+      expect(node.delta.toPlainText(), '');
+    });
+
+    test('"* " also becomes a bulleted list item', () {
+      final doc = para('* ');
+      final txn = applyInputRules(doc, caret('a', 2), rules: defaultInputRules)!;
+      expect(blockOf(txn.apply(doc), 'a').type, BlockType.bulletedListItem);
+    });
+
+    test('"1. " becomes a numbered list item starting at 1', () {
+      final doc = para('1. ');
+      final txn = applyInputRules(doc, caret('a', 3), rules: defaultInputRules)!;
+      final node = blockOf(txn.apply(doc), 'a');
+      expect(node.type, BlockType.numberedListItem);
+      expect(node.number, 1);
+    });
+
+    test('"[] " becomes an unchecked task item', () {
+      final doc = para('[] ');
+      final txn = applyInputRules(doc, caret('a', 3), rules: defaultInputRules)!;
+      final node = blockOf(txn.apply(doc), 'a');
+      expect(node.type, BlockType.todoListItem);
+      expect(node.checked, false);
+    });
+
+    test('"> " becomes a quote', () {
+      final doc = para('> ');
+      final txn = applyInputRules(doc, caret('a', 2), rules: defaultInputRules)!;
+      expect(blockOf(txn.apply(doc), 'a').type, BlockType.quote);
+    });
+
+    test('"---" becomes a horizontal rule', () {
+      final doc = para('---');
+      final txn = applyInputRules(doc, caret('a', 3), rules: defaultInputRules)!;
+      final after = txn.apply(doc);
+      expect(after.nodes.first, isA<HorizontalRuleNode>());
+    });
+
+    test('block rules only fire on paragraphs', () {
+      final doc = Document([
+        TextBlockNode.heading(id: 'a', level: 1, delta: Delta.text('- ')),
+      ]);
+      expect(applyInputRules(doc, caret('a', 2), rules: defaultInputRules), isNull);
     });
   });
 
