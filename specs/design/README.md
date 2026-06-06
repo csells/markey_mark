@@ -45,6 +45,7 @@ build (parser → layout → `CustomPainter`), not a JS bridge.
 | 11 | [roadmap.md](./roadmap.md) | Milestones P0→P3, the vertical slice definition, sequencing |
 | 12 | [bootstrap-reference.md](./bootstrap-reference.md) | Distilled, code-level implementation playbook mined from `super_editor` & `appflowy_editor` |
 | 13 | [data-structures-and-algorithms.md](./data-structures-and-algorithms.md) | Modern text-editing data structures & algorithms (per-block storage, block index, incremental parse, layout caching, grapheme cursor, CRDT door) |
+| 14 | [cross-ecosystem-best-practices.md](./cross-ecosystem-best-practices.md) | Best transferable ideas from the whole OSS landscape (ProseMirror, Lexical, CodeMirror, Slate, Quill, muya/Typora, Obsidian, remark/goldmark/markdown-it/pulldown-cmark) + gap list |
 
 Supporting research lives in [`../research/`](../research/).
 

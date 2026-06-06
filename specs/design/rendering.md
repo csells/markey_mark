@@ -128,7 +128,28 @@ appflowy's table plugin):
 - **Images:** native `Image` widgets; loading/error placeholders; async decode; on web use
   bytes/network (no `Image.file`).
 
-## 05.7 Performance
+## 05.7 Decoration layer & contextual marker reveal (state of the art)
+
+Visual overlays live **outside** the document model in a **decoration layer** — a range set
+mapped through each transaction's `PositionMapping` (the CodeMirror 6 model). Four kinds:
+
+- **mark** → wrap a range in a `TextStyle`/`TextSpan` (syntax highlight, search hits).
+- **widget** → insert a `WidgetSpan` (inline math/mention chips, collab carets).
+- **replace** → collapse a range to a placeholder/rendered glyph (this powers marker hiding).
+- **line** → block-container attributes.
+
+**Atomic ranges** make the caret skip over and delete inline atomic objects (image/math/
+mention) as a unit.
+
+**Contextual marker reveal** (the Obsidian/Typora/muya behavior, the heart of WYSIWYG-over-
+Markdown): in WYSIWYG, Markdown syntax markers (`**`, `# `, list bullets) are **replace**
+decorations that collapse to their rendered form, and **re-appear only for the block/inline
+span containing the caret** so you can edit them. Mitigate the documented caret-jump hazard by
+reserving marker space (dim rather than fully remove) or animating width, and pick reveal
+granularity (per-block vs per-inline) deliberately. See
+[14-cross-ecosystem-best-practices.md](./cross-ecosystem-best-practices.md) §14.1(3,5).
+
+## 05.8 Performance
 
 - **Granular rebuilds:** one `ChangeNotifier` per node (appflowy pattern); only edited blocks
   rebuild. The document `ChangeNotifier` drives structural changes only.
@@ -139,7 +160,7 @@ appflowy's table plugin):
 - **Async heavy work:** image decode, Mermaid layout, and large-document initial parse run
   off the UI thread (`compute`/isolates) with placeholders.
 
-## 05.8 Native Mermaid engine (no WebView, no JS) — ADR-005
+## 05.9 Native Mermaid engine (no WebView, no JS) — ADR-005
 
 Mermaid is rendered entirely in Dart. Mermaid.js is JS-only and there is no production native
 Dart renderer to depend on, so we build a staged engine with three phases per diagram type:

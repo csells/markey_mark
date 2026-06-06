@@ -166,6 +166,14 @@ This operation log is the seam where **CRDT/OT** can be introduced later (roadma
 are serializable and location-addressable, so a future transport can ship them between peers
 without changing L1–L4.
 
+> **Position mapping with bias (state of the art).** Each transaction also yields a
+> `PositionMapping` (per affected block: old offset → new offset with an **association/bias**:
+> −1 stays before inserted text, +1 moves past it — the ProseMirror `StepMap`/`assoc` idea).
+> **All** position-bearing state — caret, selection base/extent, decorations, future collab
+> cursors — is remapped through it rather than recomputed ad hoc. This is the single most
+> common source of subtle caret/selection bugs in editors. See
+> [14-cross-ecosystem-best-practices.md](./cross-ecosystem-best-practices.md) §14.1(2).
+
 ## 03.6 Invariants (enforced by the model)
 
 The model rejects states that cannot be serialized to valid Markdown:
@@ -179,6 +187,13 @@ The model rejects states that cannot be serialized to valid Markdown:
    always has a home (Google-Docs behavior).
 5. Adjacent text runs with identical attributes are merged (normalized) after every
    transaction, keeping `Delta`s canonical and round-trips stable.
+
+> **Normalize to a fixed point (state of the art).** Invariants 1–5 are enforced by a
+> normalizer that runs as an `EditReaction` **in a loop until stable** (the Lexical
+> NodeTransforms / Slate `normalizeNode` pattern): merge adjacent equal-attribute runs, drop
+> empty runs, coalesce adjacent same-type blocks, repair schema. The model is thus always
+> canonical **before** it is rendered or serialized, so serialization is a pure function. See
+> [14-cross-ecosystem-best-practices.md](./cross-ecosystem-best-practices.md) §14.1(4).
 
 > Schema validation is the Flutter-side equivalent of ProseMirror's "reject invalid
 > transactions" guarantee that the original research doc praised — it is what keeps Markdown

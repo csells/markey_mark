@@ -152,6 +152,14 @@ and wraps runs with the right markers, applying the **escape policy** (backslash
 **Custom node types** register a `NodeSerializer` so extensions round-trip without touching
 the core (the super_editor `customNodeSerializers` pattern).
 
+> **Escaping (state of the art).** The escape policy is **context-aware**, modeled on remark's
+> `mdast-util-to-markdown`: maintain "unsafe" patterns scoped by construct
+> (`inConstruct`/`notInConstruct`) and conditioned on the preceding/following character and
+> at-line-start, escaping only when the context could cause a misparse — not a flat
+> character set (which both over- and under-escapes). See
+> [14-cross-ecosystem-best-practices.md](./cross-ecosystem-best-practices.md) §14.1(1). The
+> vertical slice ships a minimal escaper; this is the hardening target.
+
 ## 04.5 The hard problems & how we control them
 
 The surface decisions that break textual fidelity, and our handling:

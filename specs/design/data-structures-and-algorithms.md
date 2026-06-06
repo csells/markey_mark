@@ -53,6 +53,13 @@ hundred chars) — fast enough to run synchronously per frame. Only when an edit
 structure* (typing `#`, ` ``` `, list markers, blank-line split/merge) do we reconcile the
 neighboring blocks. Whole-document parse (load/paste) runs **off-thread** via `compute`.
 
+**Widen the dirty set on boundary-affecting edits.** Pure single-block reparse is wrong when
+an edit changes block **boundaries** — typing ` ``` ` opens a fence that swallows following
+lines, deleting a blank line merges paragraphs, list-continuation, etc. We detect
+boundary-affecting edits and reparse a **window of adjacent blocks** (the Lezer
+reuse-fragments idea, coarsened to blocks). See
+[14-cross-ecosystem-best-practices.md](./cross-ecosystem-best-practices.md) §14.1(7).
+
 **Why not tree-sitter / a full incremental parser.** tree-sitter is C → needs FFI, which
 doesn't work on Flutter web (ADR-001 forbids non-portable paths). The pure-Dart `lezer` port
 is experimental (v0.1.0, no Markdown grammar). Markdown's block grammar is line/block
