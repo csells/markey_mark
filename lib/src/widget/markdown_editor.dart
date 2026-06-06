@@ -698,15 +698,19 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
         return Padding(
             padding: const EdgeInsets.only(left: 20), child: content);
       case BlockType.quote:
-        return Container(
-          key: ValueKey('markey-quote-${node.id}'),
-          padding: const EdgeInsets.only(left: 12),
-          decoration: BoxDecoration(
-            border: Border(
-              left: BorderSide(color: style.caretColor.withValues(alpha: 0.4), width: 4),
+        return Padding(
+          padding: EdgeInsets.only(left: node.indent * 12.0),
+          child: Container(
+            key: ValueKey('markey-quote-${node.id}'),
+            padding: const EdgeInsets.only(left: 12),
+            decoration: BoxDecoration(
+              border: Border(
+                left: BorderSide(
+                    color: style.caretColor.withValues(alpha: 0.4), width: 4),
+              ),
             ),
+            child: content,
           ),
-          child: content,
         );
       default:
         return content;

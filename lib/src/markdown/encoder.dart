@@ -96,7 +96,7 @@ class MarkdownEncoder {
         case BlockType.todoListItem:
           return '${'  ' * node.indent}- [${(node.checked ?? false) ? 'x' : ' '}] $inline';
         case BlockType.quote:
-          return '> $inline';
+          return '${'> ' * (node.indent + 1)}$inline';
         case BlockType.footnoteDef:
           return '[^${node.footnoteLabel ?? ''}]: $inline';
         case BlockType.definitionTerm:

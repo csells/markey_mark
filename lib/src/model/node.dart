@@ -128,10 +128,12 @@ final class TextBlockNode extends Node {
   /// List-item indentation depth (0 = top level).
   int get indent => attributes['indent'] as int? ?? 0;
 
-  factory TextBlockNode.quote({String? id, Delta? delta}) => TextBlockNode(
+  factory TextBlockNode.quote({String? id, Delta? delta, int indent = 0}) =>
+      TextBlockNode(
         id: id,
         type: BlockType.quote,
         delta: delta ?? Delta.empty(),
+        attributes: {if (indent > 0) 'indent': indent},
       );
 
   factory TextBlockNode.definitionTerm({String? id, Delta? delta}) =>

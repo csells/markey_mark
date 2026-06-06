@@ -2,6 +2,8 @@
 
 ![Block quote](../images/quote.png)
 
+Quotes nest: `> > inner` becomes a quote within a quote.
+
 ## How to create one
 
 - **Type it:** `> ␣` at the start of a line.

@@ -169,19 +169,22 @@ class MarkdownDecoder {
     return delta;
   }
 
-  List<Node> _quote(md.Element quote) {
+  List<Node> _quote(md.Element quote, {int depth = 0}) {
     final out = <Node>[];
     for (final child in quote.children ?? const <md.Node>[]) {
       if (child is md.Element && child.tag == 'p') {
-        out.add(TextBlockNode.quote(delta: _mapInline(child.children)));
+        out.add(TextBlockNode.quote(
+            delta: _mapInline(child.children), indent: depth));
       } else if (child is md.Element && child.tag == 'blockquote') {
-        out.addAll(_quote(child)); // nested → flattened for now
+        out.addAll(_quote(child, depth: depth + 1));
       } else if (child is md.Text && child.text.trim().isNotEmpty) {
-        out.add(TextBlockNode.quote(delta: Delta.text(child.text.trim())));
+        out.add(TextBlockNode.quote(
+            delta: Delta.text(child.text.trim()), indent: depth));
       }
     }
     if (out.isEmpty) {
-      out.add(TextBlockNode.quote(delta: _mapInline(quote.children)));
+      out.add(
+          TextBlockNode.quote(delta: _mapInline(quote.children), indent: depth));
     }
     return out;
   }

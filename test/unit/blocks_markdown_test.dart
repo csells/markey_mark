@@ -86,11 +86,31 @@ void main() {
       final d = Markdown.parse('> quoted');
       expect(tb(d, 0).type, BlockType.quote);
       expect(tb(d, 0).delta.toPlainText(), 'quoted');
+      expect(tb(d, 0).indent, 0);
+    });
+
+    test('decodes nested quote depth', () {
+      final d = Markdown.parse('> outer\n>\n> > inner');
+      final quotes = d.nodes
+          .whereType<TextBlockNode>()
+          .where((n) => n.type == BlockType.quote)
+          .toList();
+      expect(quotes.any((q) => q.delta.toPlainText() == 'outer' && q.indent == 0),
+          isTrue);
+      expect(quotes.any((q) => q.delta.toPlainText() == 'inner' && q.indent == 1),
+          isTrue);
     });
 
     test('round-trips', () {
       expect(Markdown.serialize(Markdown.parse('> hello')), '> hello');
       expectStable('> a\n\nnormal');
+    });
+
+    test('round-trips a nested quote', () {
+      const md = '> outer\n> > inner';
+      final out = Markdown.serialize(Markdown.parse(md));
+      expect(out, contains('> > inner'));
+      expect(Markdown.serialize(Markdown.parse(out)), out);
     });
   });
 
