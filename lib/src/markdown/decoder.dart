@@ -64,10 +64,10 @@ class MarkdownDecoder {
       case 'table':
         return [_table(node)];
       case 'pre':
-        return [_codeBlock(node)];
+        return [_codeOrMermaid(node)];
       case 'code':
         // Bare code element treated as a code block.
-        return [_codeBlock(node)];
+        return [_codeOrMermaid(node)];
       default:
         return [TextBlockNode.paragraph(delta: _mapInline(node.children))];
     }
@@ -221,6 +221,15 @@ class MarkdownDecoder {
       default:
         return TableAlign.none;
     }
+  }
+
+  /// A fenced code block, or a [MermaidNode] when the language is `mermaid`.
+  Node _codeOrMermaid(md.Element pre) {
+    final code = _codeBlock(pre);
+    if (code.language == 'mermaid') {
+      return MermaidNode(source: code.code);
+    }
+    return code;
   }
 
   CodeBlockNode _codeBlock(md.Element pre) {

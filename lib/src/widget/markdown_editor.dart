@@ -12,6 +12,7 @@ import '../model/position.dart';
 import '../model/selection.dart';
 import '../render/code_highlight.dart';
 import '../render/delta_text.dart';
+import '../render/diagram_renderer.dart';
 import '../render/markdown_source_highlight.dart';
 import '../theme/editor_style.dart';
 import '../ui/slash_menu.dart';
@@ -31,6 +32,7 @@ class MarkdownEditor extends StatefulWidget {
     this.readOnly = false,
     this.focusNode,
     this.slashItems,
+    this.diagramRenderer = const SourceCardDiagramRenderer(),
   });
 
   final MarkdownEditorController controller;
@@ -41,6 +43,9 @@ class MarkdownEditor extends StatefulWidget {
 
   /// Slash (`/`) command-menu items. Defaults to [defaultSlashItems].
   final List<SlashMenuItem>? slashItems;
+
+  /// Renders Mermaid diagrams. Defaults to a native source card.
+  final DiagramRenderer diagramRenderer;
 
   @override
   State<MarkdownEditor> createState() => _MarkdownEditorState();
@@ -438,6 +443,9 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
                     if (node is ImageNode) return _buildImage(node, style);
                     if (node is MathBlockNode) return _buildMath(node, style);
                     if (node is TableNode) return _buildTable(node, style);
+                    if (node is MermaidNode) {
+                      return widget.diagramRenderer.build(context, node, style);
+                    }
                     if (node is TextBlockNode) return _buildBlock(node, style);
                     return const SizedBox.shrink();
                   },

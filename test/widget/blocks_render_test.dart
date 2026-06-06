@@ -131,6 +131,14 @@ void main() {
     await teardown(tester);
   });
 
+  testWidgets('mermaid block renders the native diagram card', (tester) async {
+    final c = await pump(tester, '```mermaid\ngraph TD;\nA-->B;\n```');
+    final id = c.document.nodes.first.id;
+    expect(find.byKey(ValueKey('markey-mermaid-$id')), findsOneWidget);
+    expect(find.text('mermaid'), findsOneWidget);
+    await teardown(tester);
+  });
+
   testWidgets('read-only task checkbox is disabled', (tester) async {
     await pump(tester, '- [ ] todo', readOnly: true);
     final checkbox = tester.widget<Checkbox>(find.byType(Checkbox));

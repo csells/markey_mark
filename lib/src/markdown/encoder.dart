@@ -71,6 +71,9 @@ class MarkdownEncoder {
     if (node is TableNode) {
       return _encodeTable(node);
     }
+    if (node is MermaidNode) {
+      return '```mermaid\n${node.source}\n```';
+    }
     if (node is TextBlockNode) {
       final inline = _encodeDelta(node.delta);
       switch (node.type) {

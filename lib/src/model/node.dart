@@ -37,6 +37,7 @@ abstract final class BlockType {
   static const String image = 'image';
   static const String mathBlock = 'math_block';
   static const String table = 'table';
+  static const String mermaid = 'mermaid';
 }
 
 /// Column alignment for a GFM table.
@@ -258,6 +259,33 @@ final class ImageNode extends Node {
 
   @override
   String toString() => 'ImageNode($id, $url)';
+}
+
+/// A Mermaid diagram (a ` ```mermaid ` fenced block) holding diagram [source].
+/// Rendered by a pluggable native diagram engine; degrades to a source card.
+@immutable
+final class MermaidNode extends Node {
+  MermaidNode({String? id, required this.source, Attributes? attributes})
+      : super(id: id ?? NodeIds.next(), attributes: normalizeAttributes(attributes));
+
+  final String source;
+
+  @override
+  String get type => BlockType.mermaid;
+
+  @override
+  Node copyWith({Attributes? attributes}) =>
+      MermaidNode(id: id, source: source, attributes: attributes ?? this.attributes);
+
+  @override
+  bool operator ==(Object other) =>
+      other is MermaidNode && other.id == id && other.source == source;
+
+  @override
+  int get hashCode => Object.hash(id, source);
+
+  @override
+  String toString() => 'MermaidNode($id)';
 }
 
 /// A display math block: `$$ … $$` holding LaTeX [tex]. Atomic.

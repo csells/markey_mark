@@ -42,6 +42,7 @@ nav:
       - Code blocks: features/code-blocks.md
       - Tables: features/tables.md
       - Math: features/math.md
+      - Diagrams: features/diagrams.md
       - Images: features/images.md
       - Links: features/links.md
   - Editing:
