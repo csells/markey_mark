@@ -70,6 +70,13 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
   /// Per-block laid-out text, keyed by node id (see [_layoutFor]).
   final Map<String, _CachedLayout> _layoutCache = {};
 
+  /// Per-block paint-area keys, used to hit-test which block a drag is over so
+  /// selection can extend across blocks.
+  final Map<String, GlobalKey> _paintKeys = {};
+
+  GlobalKey _paintKeyFor(String id) =>
+      _paintKeys.putIfAbsent(id, () => GlobalKey());
+
   /// Native code highlighter for code blocks (no WebView/JS).
   final CodeHighlighter _highlighter = const DefaultCodeHighlighter();
 
@@ -289,6 +296,26 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
 
   @override
   void updateEditingValue(TextEditingValue value) {
+    // A cross-block selection can't be mirrored in the per-block IME, so any
+    // content edit while one is active is interpreted against the model
+    // selection (which the commands replace as a whole).
+    final modelSel = _c.selection;
+    if (modelSel != null &&
+        modelSel.base.nodeId != modelSel.extent.nodeId &&
+        value.text != _imeValue.text) {
+      final diff = _diff(_imeValue.text, value.text);
+      final inserted = diff.$3;
+      if (inserted.isEmpty) {
+        _c.deleteBackward();
+      } else if (inserted == '\n') {
+        _c.deleteBackward();
+        _c.splitBlock();
+      } else {
+        _c.insertText(inserted);
+      }
+      return; // _onControllerChanged resyncs the IME from the new model.
+    }
+
     final block = _activeBlock;
     if (block == null) {
       _imeValue = value;
@@ -387,23 +414,51 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
     final tp = _layoutFor(node, width);
     final pos = tp.getPositionForOffset(localPos);
     _focusNode.requestFocus();
-    _c.setSelection(DocumentSelection.collapsed(
-      DocumentPosition.text(node.id, pos.offset),
+    final target = DocumentPosition.text(node.id, pos.offset);
+    final sel = _c.selection;
+    // Shift+click extends the existing selection (possibly across blocks).
+    if (HardwareKeyboard.instance.isShiftPressed && sel != null) {
+      _c.setSelection(DocumentSelection(base: sel.base, extent: target));
+    } else {
+      _c.setSelection(DocumentSelection.collapsed(target));
+    }
+  }
+
+  /// Extends the selection during a drag, hit-testing every block so the extent
+  /// can move into a different block (cross-block selection). Falls back to the
+  /// gesture's owning [node] when the pointer is between blocks.
+  void _extendSelectionGlobal(
+      TextBlockNode node, DragUpdateDetails d, double width) {
+    if (widget.readOnly) return;
+    final hit = _blockAtGlobal(d.globalPosition);
+    final (target, offset) = hit ?? _localHit(node, d.localPosition, width);
+    final sel = _c.selection;
+    final base = sel?.base ?? DocumentPosition.text(target, offset);
+    _c.setSelection(DocumentSelection(
+      base: base,
+      extent: DocumentPosition.text(target, offset),
     ));
   }
 
-  void _extendSelection(TextBlockNode node, Offset localPos, double width) {
-    if (widget.readOnly) return;
+  (String, int) _localHit(TextBlockNode node, Offset localPos, double width) {
     final tp = _layoutFor(node, width);
-    final pos = tp.getPositionForOffset(localPos);
-    final sel = _c.selection;
-    final base = (sel != null && sel.base.nodeId == node.id)
-        ? sel.base
-        : DocumentPosition.text(node.id, pos.offset);
-    _c.setSelection(DocumentSelection(
-      base: base,
-      extent: DocumentPosition.text(node.id, pos.offset),
-    ));
+    return (node.id, tp.getPositionForOffset(localPos).offset);
+  }
+
+  /// Returns the (nodeId, text offset) for the text block whose painted area
+  /// contains [globalPos], or null if none does.
+  (String, int)? _blockAtGlobal(Offset globalPos) {
+    for (final n in _c.document.nodes) {
+      if (n is! TextBlockNode) continue;
+      final box = _paintKeys[n.id]?.currentContext?.findRenderObject()
+          as RenderBox?;
+      if (box == null || !box.attached) continue;
+      final local = box.globalToLocal(globalPos);
+      if (local.dy < 0 || local.dy > box.size.height) continue;
+      final tp = _layoutFor(n, box.size.width);
+      return (n.id, tp.getPositionForOffset(local).offset);
+    }
+    return null;
   }
 
   // ── Find & replace ─────────────────────────────────────────────────────
@@ -951,6 +1006,30 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
     );
   }
 
+  /// The portion of a cross-block [sel] that falls within [node], as a local
+  /// [TextSelection], or null when [node] lies outside the selected range.
+  TextSelection? _crossBlockLocalSelection(
+      TextBlockNode node, DocumentSelection sel) {
+    final doc = _c.document;
+    final iBase = doc.indexOfId(sel.base.nodeId);
+    final iExt = doc.indexOfId(sel.extent.nodeId);
+    final iNode = doc.indexOfId(node.id);
+    if (iBase < 0 || iExt < 0 || iNode < 0) return null;
+    final startIdx = math.min(iBase, iExt);
+    final endIdx = math.max(iBase, iExt);
+    if (iNode < startIdx || iNode > endIdx) return null;
+    final startPos = iBase <= iExt ? sel.base : sel.extent;
+    final endPos = iBase <= iExt ? sel.extent : sel.base;
+    int offsetOf(DocumentPosition p) =>
+        p.nodePosition is TextNodePosition
+            ? (p.nodePosition as TextNodePosition).offset
+            : 0;
+    final len = node.delta.length;
+    final from = iNode == startIdx ? offsetOf(startPos) : 0;
+    final to = iNode == endIdx ? offsetOf(endPos) : len;
+    return TextSelection(baseOffset: from, extentOffset: to);
+  }
+
   Widget _textContent(TextBlockNode node, EditorStyle style) {
     final base = baseStyleFor(node, style);
     final sel = _c.selection;
@@ -965,6 +1044,8 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
       } else {
         localSelection = TextSelection(baseOffset: b, extentOffset: e);
       }
+    } else if (sel != null && !sel.isCollapsed) {
+      localSelection = _crossBlockLocalSelection(node, sel);
     }
     final showCaret = _focusNode.hasFocus && caretOffset != null;
 
@@ -978,8 +1059,9 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
           behavior: HitTestBehavior.opaque,
           onTapDown: (d) => _placeCaret(node, d.localPosition, width),
           onPanStart: (d) => _placeCaret(node, d.localPosition, width),
-          onPanUpdate: (d) => _extendSelection(node, d.localPosition, width),
+          onPanUpdate: (d) => _extendSelectionGlobal(node, d, width),
           child: CustomPaint(
+            key: _paintKeyFor(node.id),
             size: Size(width, height),
             painter: _BlockPainter(
               textPainter: tp,
@@ -1007,6 +1089,7 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
       cmd(LogicalKeyboardKey.keyZ, shift: true): const _RedoIntent(),
       cmd(LogicalKeyboardKey.keyF): const _FindIntent(),
       cmd(LogicalKeyboardKey.keyV): const _PasteIntent(),
+      cmd(LogicalKeyboardKey.keyA): const _SelectAllIntent(),
       const SingleActivator(LogicalKeyboardKey.arrowLeft):
           const _MoveCaretIntent(false),
       const SingleActivator(LogicalKeyboardKey.arrowRight):
@@ -1056,6 +1139,10 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
           _handlePaste();
           return null;
         }),
+        _SelectAllIntent: CallbackAction<_SelectAllIntent>(onInvoke: (_) {
+          _c.selectAll();
+          return null;
+        }),
         _MoveBlockIntent: CallbackAction<_MoveBlockIntent>(onInvoke: (i) {
           final id = _c.selection?.extent.nodeId;
           if (id != null) {
@@ -1096,6 +1183,10 @@ class _MoveBlockIntent extends Intent {
 
 class _PasteIntent extends Intent {
   const _PasteIntent();
+}
+
+class _SelectAllIntent extends Intent {
+  const _SelectAllIntent();
 }
 
 class _MoveCaretIntent extends Intent {

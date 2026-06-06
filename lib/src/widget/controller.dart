@@ -180,6 +180,25 @@ class MarkdownEditorController extends ChangeNotifier {
   void setSelection(DocumentSelection? selection) =>
       _editor.setSelection(selection);
 
+  /// Selects the entire document, from the start of the first text block to the
+  /// end of the last text block. A no-op if there are no text blocks.
+  void selectAll() {
+    final nodes = document.nodes;
+    TextBlockNode? first;
+    TextBlockNode? last;
+    for (final n in nodes) {
+      if (n is TextBlockNode) {
+        first ??= n;
+        last = n;
+      }
+    }
+    if (first == null || last == null) return;
+    setSelection(DocumentSelection(
+      base: DocumentPosition.text(first.id, 0),
+      extent: DocumentPosition.text(last.id, last.delta.length),
+    ));
+  }
+
   // ── Editing intents (route through the command pipeline) ─────────────────
 
   /// Inserts [text] at the caret (replacing any selection), then applies input

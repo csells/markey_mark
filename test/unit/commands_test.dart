@@ -52,13 +52,16 @@ void main() {
       expect(EditCommands.insertText(doc, null, 'x'), isNull);
     });
 
-    test('returns null for multi-block selection', () {
+    test('replaces a multi-block selection with the typed text', () {
       final doc = Document([p('a', 'x'), p('b', 'y')]);
       final sel = DocumentSelection(
         base: DocumentPosition.text('a', 0),
         extent: DocumentPosition.text('b', 1),
       );
-      expect(EditCommands.insertText(doc, sel, 'z'), isNull);
+      final txn = EditCommands.insertText(doc, sel, 'z')!;
+      final after = txn.apply(doc);
+      expect(after.length, 1);
+      expect(textOf(after, 'a'), 'z');
     });
   });
 
