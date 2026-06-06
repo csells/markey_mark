@@ -35,6 +35,31 @@ void main() {
     });
   });
 
+  group('MatchLocation + non-text', () {
+    test('value semantics', () {
+      const a = MatchLocation(nodeId: 'n', start: 1, end: 3);
+      expect(a, const MatchLocation(nodeId: 'n', start: 1, end: 3));
+      expect(a == const MatchLocation(nodeId: 'n', start: 1, end: 4), isFalse);
+      expect(a.hashCode, const MatchLocation(nodeId: 'n', start: 1, end: 3).hashCode);
+      expect(a.toString(), contains('MatchLocation'));
+    });
+
+    test('skips non-text blocks (e.g. tables)', () {
+      final c = MarkdownEditorController(
+          markdown: '| cat | dog |\n| --- | --- |\n| 1 | 2 |');
+      expect(findInDocument(c.document, 'cat'), isEmpty);
+      c.dispose();
+    });
+
+    test('replaceMatch on a non-text node is a no-op', () {
+      final c = MarkdownEditorController(markdown: '---');
+      c.replaceMatch(
+          const MatchLocation(nodeId: 'nope', start: 0, end: 1), 'x');
+      expect(c.markdown, '---');
+      c.dispose();
+    });
+  });
+
   group('controller find/replace', () {
     test('selectMatch moves the selection to the match', () {
       final c = MarkdownEditorController(markdown: 'a cat sat');

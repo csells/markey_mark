@@ -79,6 +79,21 @@ void main() {
     await teardown(tester);
   });
 
+  testWidgets('a non-matching query shows no items', (tester) async {
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: SlashMenu(
+          items: defaultSlashItems,
+          query: 'zzzznomatch',
+          onSelected: (_) {},
+        ),
+      ),
+    ));
+    await tester.pump();
+    expect(find.byType(ListTile), findsNothing);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('Escape dismisses the menu', (tester) async {
     await pump(tester);
     tester.testTextInput.enterText('/');

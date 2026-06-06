@@ -214,6 +214,15 @@ void main() {
     await teardown(tester);
   });
 
+  testWidgets('class diagram renders every relation marker kind',
+      (tester) async {
+    await pump(tester,
+        '```mermaid\nclassDiagram\nA *-- B\nA o-- C\nA --> D\nA ..> E\nA <|-- F\n```');
+    expect(find.byType(ClassDiagramView), findsOneWidget);
+    expect(tester.takeException(), isNull);
+    await teardown(tester);
+  });
+
   testWidgets('mermaid gantt chart renders natively', (tester) async {
     final c = await pump(tester,
         '```mermaid\ngantt\ntitle Plan\nsection S\nA : 2024-01-01, 3d\nB : 2024-01-04, 2d\n```');

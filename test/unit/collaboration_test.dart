@@ -59,6 +59,19 @@ void main() {
       b.dispose();
     });
 
+    test('exposes peers and active state; dispose is idempotent', () {
+      final a = MarkdownEditorController(markdown: 'x');
+      final b = MarkdownEditorController(markdown: 'x');
+      final session = CollaborationSession([a, b]);
+      expect(session.peers.length, 2);
+      expect(session.isActive, isTrue);
+      session.dispose();
+      expect(session.isActive, isFalse);
+      session.dispose(); // no-op, no throw
+      a.dispose();
+      b.dispose();
+    });
+
     test('a disposed session stops syncing', () {
       final a = MarkdownEditorController(markdown: 'p');
       final b = MarkdownEditorController(markdown: 'p');
