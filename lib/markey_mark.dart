@@ -80,3 +80,4 @@ export 'src/diagram/mermaid_class.dart'
         ClassRelationKind,
         parseClassDiagram,
         ClassDiagramView;
+export 'src/diagram/mermaid_er.dart' show parseEntityRelationship;

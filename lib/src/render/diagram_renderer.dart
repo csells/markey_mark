@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../diagram/mermaid_class.dart';
+import '../diagram/mermaid_er.dart';
 import '../diagram/mermaid_flowchart.dart';
 import '../diagram/mermaid_pie.dart';
 import '../diagram/mermaid_sequence.dart';
@@ -51,7 +52,7 @@ class NativeDiagramRenderer implements DiagramRenderer {
         ),
       );
     }
-    final cls = parseClassDiagram(node.source);
+    final cls = parseClassDiagram(node.source) ?? parseEntityRelationship(node.source);
     if (cls != null) {
       return Container(
         key: ValueKey('markey-class-${node.id}'),

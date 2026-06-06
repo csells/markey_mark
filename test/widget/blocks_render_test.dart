@@ -194,6 +194,15 @@ void main() {
     await teardown(tester);
   });
 
+  testWidgets('mermaid ER diagram renders natively (reuses class view)',
+      (tester) async {
+    await pump(tester,
+        '```mermaid\nerDiagram\nCUSTOMER ||--o{ ORDER : places\n```');
+    expect(find.byType(ClassDiagramView), findsOneWidget);
+    expect(find.text('mermaid'), findsNothing);
+    await teardown(tester);
+  });
+
   testWidgets('an unsupported diagram type degrades to the source card',
       (tester) async {
     final c = await pump(tester, '```mermaid\nmindmap\n  root\n    a\n```');

@@ -77,9 +77,12 @@ Animal <|-- Cat
 ```
 ````
 
+Entity-relationship (`erDiagram`) diagrams render natively too, reusing the class-diagram
+boxes (entities with attributes + labeled relationships).
+
 ## Other types
 
-Diagram types the native engine doesn't yet support (e.g. gantt, ER, mindmap) degrade
+Diagram types the native engine doesn't yet support (e.g. gantt, journey, mindmap) degrade
 gracefully to a readable **source card** with a `mermaid` badge:
 
 ![Mermaid source-card fallback](../images/mermaid.png)
