@@ -54,4 +54,5 @@ nav:
       - Undo & redo: editing/undo-redo.md
   - Reference:
       - Architecture: architecture.md
+      - Accessibility: accessibility.md
       - Contributing docs: contributing-docs.md

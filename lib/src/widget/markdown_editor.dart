@@ -449,13 +449,28 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
                       return _buildCodeBlock(node, style);
                     }
                     if (node is HorizontalRuleNode) return _buildHr(node, style);
-                    if (node is ImageNode) return _buildImage(node, style);
+                    if (node is ImageNode) {
+                      return Semantics(
+                        image: true,
+                        excludeSemantics: true,
+                        label: (node.alt == null || node.alt!.isEmpty)
+                            ? 'image'
+                            : node.alt,
+                        child: _buildImage(node, style),
+                      );
+                    }
                     if (node is MathBlockNode) return _buildMath(node, style);
                     if (node is TableNode) return _buildTable(node, style);
                     if (node is MermaidNode) {
                       return widget.diagramRenderer.build(context, node, style);
                     }
-                    if (node is TextBlockNode) return _buildBlock(node, style);
+                    if (node is TextBlockNode) {
+                      return Semantics(
+                        header: node.type == BlockType.heading,
+                        label: node.delta.toPlainText(),
+                        child: _buildBlock(node, style),
+                      );
+                    }
                     return const SizedBox.shrink();
                   },
                 ),
@@ -620,7 +635,6 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
       alignment: Alignment.centerLeft,
       child: Image.network(
         node.url,
-        semanticLabel: node.alt,
         errorBuilder: (context, error, stack) => Container(
           padding: const EdgeInsets.all(8),
           color: style.codeTextStyle.backgroundColor,
