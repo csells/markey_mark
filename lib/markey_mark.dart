@@ -16,6 +16,8 @@ export 'src/model/node.dart'
         HorizontalRuleNode,
         ImageNode,
         MathBlockNode,
+        TableNode,
+        TableAlign,
         BlockType,
         NodeIds;
 export 'src/model/document.dart' show Document;

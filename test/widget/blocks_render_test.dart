@@ -115,6 +115,22 @@ void main() {
     await teardown(tester);
   });
 
+  testWidgets('GFM table renders a Table widget with all cells', (tester) async {
+    final c = await pump(
+        tester, '| Name | Age |\n| --- | --- |\n| Ann | 30 |\n| Bob | 25 |');
+    expect(find.byType(Table), findsOneWidget);
+    // 3 rows x 2 cols = 6 rich-text cells.
+    final cells = find.descendant(
+      of: find.byType(Table),
+      matching: find.byType(RichText),
+    );
+    expect(cells, findsNWidgets(6));
+    final t = c.document.nodes.first as TableNode;
+    expect(t.cellText(0, 0), 'Name');
+    expect(t.cellText(2, 0), 'Bob');
+    await teardown(tester);
+  });
+
   testWidgets('read-only task checkbox is disabled', (tester) async {
     await pump(tester, '- [ ] todo', readOnly: true);
     final checkbox = tester.widget<Checkbox>(find.byType(Checkbox));

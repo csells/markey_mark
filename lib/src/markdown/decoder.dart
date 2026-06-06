@@ -61,6 +61,8 @@ class MarkdownDecoder {
         return _quote(node);
       case 'math_block':
         return [MathBlockNode(tex: node.textContent)];
+      case 'table':
+        return [_table(node)];
       case 'pre':
         return [_codeBlock(node)];
       case 'code':
@@ -175,6 +177,51 @@ class MarkdownDecoder {
         alt: (img.attributes['alt'] ?? '').isEmpty ? null : img.attributes['alt'],
         title: img.attributes['title'],
       );
+
+  TableNode _table(md.Element table) {
+    final rows = <List<Delta>>[];
+    final alignments = <TableAlign>[];
+
+    void addRow(md.Element tr, {required bool header}) {
+      final cells = <Delta>[];
+      for (final cell in tr.children ?? const <md.Node>[]) {
+        if (cell is! md.Element) continue;
+        if (cell.tag != 'th' && cell.tag != 'td') continue;
+        cells.add(_mapInline(cell.children));
+        if (header) alignments.add(_alignOf(cell));
+      }
+      if (cells.isNotEmpty) rows.add(cells);
+    }
+
+    for (final section in table.children ?? const <md.Node>[]) {
+      if (section is! md.Element) continue;
+      if (section.tag == 'thead') {
+        for (final tr in section.children ?? const <md.Node>[]) {
+          if (tr is md.Element && tr.tag == 'tr') addRow(tr, header: true);
+        }
+      } else if (section.tag == 'tbody') {
+        for (final tr in section.children ?? const <md.Node>[]) {
+          if (tr is md.Element && tr.tag == 'tr') addRow(tr, header: false);
+        }
+      } else if (section.tag == 'tr') {
+        addRow(section, header: rows.isEmpty);
+      }
+    }
+    return TableNode(rows: rows, alignments: alignments);
+  }
+
+  TableAlign _alignOf(md.Element cell) {
+    switch (cell.attributes['align']) {
+      case 'left':
+        return TableAlign.left;
+      case 'center':
+        return TableAlign.center;
+      case 'right':
+        return TableAlign.right;
+      default:
+        return TableAlign.none;
+    }
+  }
 
   CodeBlockNode _codeBlock(md.Element pre) {
     md.Element? codeEl;

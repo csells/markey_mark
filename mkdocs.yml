@@ -40,6 +40,7 @@ nav:
       - Task lists: features/tasks.md
       - Block quotes: features/quotes.md
       - Code blocks: features/code-blocks.md
+      - Tables: features/tables.md
       - Math: features/math.md
       - Images: features/images.md
       - Links: features/links.md

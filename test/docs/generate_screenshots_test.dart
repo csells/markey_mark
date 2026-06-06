@@ -125,6 +125,11 @@ A native, cross-platform **WYSIWYG Markdown editor** for Flutter.
         "```dart\nvoid main() {\n  print('hello'); // a comment\n  var x = 42;\n}\n```");
   });
 
+  testWidgets('table', (t) async {
+    await shoot(t, 'table',
+        '| Feature | Native? |\n| :-- | :-: |\n| Tables | yes |\n| Math | yes |\n| Code | yes |');
+  });
+
   testWidgets('math', (t) async {
     await shoot(t, 'math', r'Euler:' '\n\n' r'$$' '\n' r'e^{i\pi} + 1 = 0' '\n' r'$$');
   });

@@ -68,6 +68,9 @@ class MarkdownEncoder {
     if (node is MathBlockNode) {
       return '\$\$\n${node.tex}\n\$\$';
     }
+    if (node is TableNode) {
+      return _encodeTable(node);
+    }
     if (node is TextBlockNode) {
       final inline = _encodeDelta(node.delta);
       switch (node.type) {
@@ -87,6 +90,24 @@ class MarkdownEncoder {
       }
     }
     return '';
+  }
+
+  String _encodeTable(TableNode t) {
+    String row(List<Delta> cells) =>
+        '| ${[for (final c in cells) _encodeDelta(c)].join(' | ')} |';
+    String divider(TableAlign a) => switch (a) {
+          TableAlign.left => ':---',
+          TableAlign.center => ':--:',
+          TableAlign.right => '---:',
+          TableAlign.none => '---',
+        };
+    final lines = <String>[];
+    if (t.rows.isNotEmpty) lines.add(row(t.rows.first));
+    lines.add('| ${t.alignments.map(divider).join(' | ')} |');
+    for (final r in t.rows.skip(1)) {
+      lines.add(row(r));
+    }
+    return lines.join('\n');
   }
 
   String _encodeDelta(Delta delta) {

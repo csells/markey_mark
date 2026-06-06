@@ -36,7 +36,11 @@ abstract final class BlockType {
   static const String horizontalRule = 'horizontal_rule';
   static const String image = 'image';
   static const String mathBlock = 'math_block';
+  static const String table = 'table';
 }
+
+/// Column alignment for a GFM table.
+enum TableAlign { none, left, center, right }
 
 /// Base class for every node in the document.
 ///
@@ -280,6 +284,68 @@ final class MathBlockNode extends Node {
 
   @override
   String toString() => 'MathBlockNode($id)';
+}
+
+/// A GFM table: [rows] of cells (each a [Delta]), row 0 being the header, plus
+/// per-column [alignments]. Atomic at the document level; cells are edited
+/// in place by the table component.
+@immutable
+final class TableNode extends Node {
+  TableNode({
+    String? id,
+    required this.rows,
+    required this.alignments,
+    Attributes? attributes,
+  }) : super(id: id ?? NodeIds.next(), attributes: normalizeAttributes(attributes));
+
+  /// `rows[r][c]` is the cell content; `rows[0]` is the header row.
+  final List<List<Delta>> rows;
+  final List<TableAlign> alignments;
+
+  @override
+  String get type => BlockType.table;
+
+  int get rowCount => rows.length;
+  int get columnCount => alignments.length;
+
+  String cellText(int row, int col) => rows[row][col].toPlainText();
+
+  @override
+  Node copyWith({Attributes? attributes}) => TableNode(
+        id: id,
+        rows: rows,
+        alignments: alignments,
+        attributes: attributes ?? this.attributes,
+      );
+
+  @override
+  bool operator ==(Object other) =>
+      other is TableNode &&
+      other.id == id &&
+      _rowsEqual(other.rows, rows) &&
+      _listEq(other.alignments, alignments);
+
+  static bool _listEq<T>(List<T> a, List<T> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (a[i] != b[i]) return false;
+    }
+    return true;
+  }
+
+  static bool _rowsEqual(List<List<Delta>> a, List<List<Delta>> b) {
+    if (a.length != b.length) return false;
+    for (var i = 0; i < a.length; i++) {
+      if (!_listEq(a[i], b[i])) return false;
+    }
+    return true;
+  }
+
+  @override
+  int get hashCode => Object.hash(id, rowCount, columnCount);
+
+  @override
+  String toString() => 'TableNode($id, ${rowCount}x$columnCount)';
 }
 
 /// A thematic break (`---`). An atomic, contentless block.

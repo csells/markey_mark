@@ -437,6 +437,7 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
                     if (node is HorizontalRuleNode) return _buildHr(node, style);
                     if (node is ImageNode) return _buildImage(node, style);
                     if (node is MathBlockNode) return _buildMath(node, style);
+                    if (node is TableNode) return _buildTable(node, style);
                     if (node is TextBlockNode) return _buildBlock(node, style);
                     return const SizedBox.shrink();
                   },
@@ -522,6 +523,52 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
           height: 1,
         ),
       );
+
+  Widget _buildTable(TableNode node, EditorStyle style) {
+    TextAlign textAlign(TableAlign a) => switch (a) {
+          TableAlign.center => TextAlign.center,
+          TableAlign.right => TextAlign.right,
+          _ => TextAlign.left,
+        };
+    final borderColor = style.caretColor.withValues(alpha: 0.25);
+    return Container(
+      key: ValueKey('markey-block-${node.id}'),
+      alignment: Alignment.centerLeft,
+      child: Table(
+        defaultColumnWidth: const IntrinsicColumnWidth(),
+        border: TableBorder.all(color: borderColor),
+        defaultVerticalAlignment: TableCellVerticalAlignment.middle,
+        children: [
+          for (var r = 0; r < node.rowCount; r++)
+            TableRow(
+              decoration: r == 0
+                  ? BoxDecoration(color: borderColor.withValues(alpha: 0.12))
+                  : null,
+              children: [
+                for (var c = 0; c < node.columnCount; c++)
+                  Padding(
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 10, vertical: 6),
+                    child: RichText(
+                      textAlign: textAlign(node.alignments[c]),
+                      text: deltaToTextSpan(
+                        c < node.rows[r].length
+                            ? node.rows[r][c]
+                            : Delta.empty(),
+                        r == 0
+                            ? style.baseTextStyle
+                                .copyWith(fontWeight: FontWeight.bold)
+                            : style.baseTextStyle,
+                        style,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildMath(MathBlockNode node, EditorStyle style) {
     return Container(
