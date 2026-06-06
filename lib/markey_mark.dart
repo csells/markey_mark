@@ -40,6 +40,7 @@ export 'src/editing/input_rules.dart'
         defaultInputRules,
         applyInputRules;
 export 'src/editing/search.dart' show MatchLocation, findInDocument;
+export 'src/editing/collaboration.dart' show CollaborationSession;
 
 // Markdown pipeline (L0)
 export 'src/markdown/decoder.dart' show MarkdownDecoder;

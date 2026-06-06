@@ -28,10 +28,24 @@ class Editor extends ChangeNotifier {
   /// Tags that may coalesce into a single undo unit while typed rapidly.
   static const Set<String> _mergeableTags = {'typing'};
 
+  /// Called with each transaction applied *locally* (typing, undo, redo) so a
+  /// collaboration layer can broadcast it to peers. Not called for
+  /// [applyRemote].
+  void Function(EditTransaction txn)? onLocalApply;
+
   Document get document => _document;
   DocumentSelection? get selection => _selection;
   bool get canUndo => _undo.isNotEmpty;
   bool get canRedo => _redo.isNotEmpty;
+
+  /// Applies a transaction received from a remote peer: mutates the document
+  /// but does not touch local undo history or selection, and does not
+  /// re-broadcast.
+  void applyRemote(EditTransaction txn) {
+    if (txn.isEmpty) return;
+    _document = txn.apply(_document);
+    notifyListeners();
+  }
 
   /// Applies [txn], updates the selection, and records it for undo.
   void apply(EditTransaction txn) {
@@ -61,6 +75,7 @@ class Editor extends ChangeNotifier {
       _lastEditTime = now;
     }
     notifyListeners();
+    if (!txn.isEmpty) onLocalApply?.call(txn);
   }
 
   /// Sets the selection without recording an undo entry.
@@ -89,6 +104,7 @@ class Editor extends ChangeNotifier {
     _redo.add(txn);
     _lastEditTime = DateTime.fromMillisecondsSinceEpoch(0);
     notifyListeners();
+    onLocalApply?.call(inverse);
   }
 
   void redo() {
@@ -99,5 +115,6 @@ class Editor extends ChangeNotifier {
     _undo.add(txn);
     _lastEditTime = DateTime.fromMillisecondsSinceEpoch(0);
     notifyListeners();
+    onLocalApply?.call(txn);
   }
 }

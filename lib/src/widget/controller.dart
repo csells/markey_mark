@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:characters/characters.dart';
 import 'package:flutter/foundation.dart';
 
@@ -37,9 +39,22 @@ class MarkdownEditorController extends ChangeNotifier {
         ),
         inputRules = inputRules ?? defaultInputRules {
     _editor.addListener(_onEditorChanged);
+    _editor.onLocalApply = _outgoing.add;
   }
 
   final Editor _editor;
+
+  /// Transactions applied locally, for a collaboration layer to broadcast.
+  /// Synchronous so peers stay in lockstep within a frame.
+  final StreamController<EditTransaction> _outgoing =
+      StreamController<EditTransaction>.broadcast(sync: true);
+
+  /// Stream of locally-applied transactions (see [CollaborationSession]).
+  Stream<EditTransaction> get outgoing => _outgoing.stream;
+
+  /// Applies a transaction received from a remote peer (no local undo entry,
+  /// no re-broadcast).
+  void applyRemote(EditTransaction txn) => _editor.applyRemote(txn);
 
   /// The ordered input rules applied on text insertion.
   List<InputRule> inputRules;
@@ -348,6 +363,7 @@ class MarkdownEditorController extends ChangeNotifier {
   @override
   void dispose() {
     _editor.removeListener(_onEditorChanged);
+    _outgoing.close();
     _editor.dispose();
     super.dispose();
   }
