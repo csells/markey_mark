@@ -160,6 +160,13 @@ class MarkdownEncoder {
         continue;
       }
 
+      // A hard line break: two trailing spaces + newline.
+      if (attrs[InlineAttr.hardBreak] == true) {
+        closeFrom(0);
+        buf.write('  \n');
+        continue;
+      }
+
       // Code spans are literal and can't carry wrapping marks meaningfully;
       // close everything around them.
       final want = isCode

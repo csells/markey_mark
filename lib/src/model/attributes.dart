@@ -25,6 +25,9 @@ abstract final class InlineAttr {
 
   /// Inline footnote reference; value is the footnote label string.
   static const String footnote = 'footnote';
+
+  /// A hard line break (`  \n`); the run's text is a single newline.
+  static const String hardBreak = 'hardBreak';
 }
 
 /// Deep-equality for two attribute maps (order-independent).

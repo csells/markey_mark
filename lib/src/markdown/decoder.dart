@@ -388,6 +388,10 @@ class _InlineMapper implements md.NodeVisitor {
         _runs.add(TextRun(element.textContent, {InlineAttr.math: true}));
         _stack.add(const {});
         return false;
+      case 'br':
+        _runs.add(TextRun('\n', {InlineAttr.hardBreak: true}));
+        _stack.add(const {});
+        return false;
       case 'sup':
         if ((element.attributes['class'] ?? '').contains('footnote-ref')) {
           final label = element.textContent;
