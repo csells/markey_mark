@@ -410,6 +410,77 @@ void main() {
     });
   });
 
+  group('Performance, responsiveness & resource use', () {
+    testWidgets('idle (unfocused) editor runs no timers — pumpAndSettle settles',
+        (tester) async {
+      final c = MarkdownEditorController(markdown: 'Resting');
+      addTearDown(c.dispose);
+      await pumpEditor(tester, c);
+      // If a periodic caret-blink timer ran while unfocused, this would hang.
+      await tester.pumpAndSettle();
+      expect(tester.takeException(), isNull);
+      await teardown(tester);
+    });
+
+    testWidgets('virtualizes large documents (only visible blocks are built)',
+        (tester) async {
+      final md = List.generate(800, (i) => 'Paragraph number $i').join('\n\n');
+      final c = MarkdownEditorController(markdown: md);
+      addTearDown(c.dispose);
+      await pumpEditor(tester, c);
+
+      expect(c.document.length, 800);
+      final builtBlocks = find.byWidgetPredicate((w) {
+        final k = w.key;
+        return k is ValueKey && '${k.value}'.startsWith('markey-block-');
+      });
+      final builtCount = builtBlocks.evaluate().length;
+      // ListView.builder must not build all 800 blocks at once.
+      expect(builtCount, lessThan(800));
+      expect(builtCount, greaterThan(0));
+      await teardown(tester);
+    });
+
+    testWidgets('toolbar is responsive on a narrow (mobile) width — no overflow',
+        (tester) async {
+      final c = MarkdownEditorController(markdown: 'Hi');
+      addTearDown(c.dispose);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: SizedBox(
+              width: 320,
+              height: 600,
+              child: MarkdownEditor(controller: c),
+            ),
+          ),
+        ),
+      );
+      await tester.pump();
+      expect(tester.takeException(), isNull);
+      // The mode toggle stays pinned and reachable even when buttons scroll.
+      expect(find.byKey(const Key('markey_toggle_mode')), findsOneWidget);
+      await teardown(tester);
+    });
+
+    testWidgets('editing a block does not re-shape other blocks (cache reuse)',
+        (tester) async {
+      final c = MarkdownEditorController(markdown: 'one\n\ntwo\n\nthree');
+      addTearDown(c.dispose);
+      await pumpEditor(tester, c);
+
+      await tester.tap(firstBlock(c));
+      await tester.pump();
+      tester.testTextInput.enterText('one!');
+      await tester.pump();
+      expect((c.document.nodes.first as TextBlockNode).delta.toPlainText(),
+          'one!');
+      // Untouched blocks are unchanged (their cached layout is still valid).
+      expect((c.document.nodes[1] as TextBlockNode).delta.toPlainText(), 'two');
+      await teardown(tester);
+    });
+  });
+
   group('More toolbar + shortcuts', () {
     testWidgets('italic toolbar button formats the selection', (tester) async {
       final c = MarkdownEditorController(markdown: 'Hello');

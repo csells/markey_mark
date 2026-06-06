@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import '../model/delta.dart';
 import '../model/node.dart';
 import '../model/position.dart';
 import '../model/selection.dart';
@@ -40,11 +41,14 @@ class MarkdownEditor extends StatefulWidget {
 class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
   late FocusNode _focusNode;
   final TextEditingController _sourceController = TextEditingController();
-  final ValueNotifier<bool> _caretBlink = ValueNotifier<bool>(true);
+  final ValueNotifier<bool> _caretBlink = ValueNotifier<bool>(false);
   Timer? _blinkTimer;
 
   TextInputConnection? _connection;
   TextEditingValue _imeValue = TextEditingValue.empty;
+
+  /// Per-block laid-out text, keyed by node id (see [_layoutFor]).
+  final Map<String, _CachedLayout> _layoutCache = {};
 
   MarkdownEditorController get _c => widget.controller;
 
@@ -57,20 +61,18 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
     _focusNode = widget.focusNode ?? FocusNode();
     _focusNode.addListener(_onFocusChanged);
     _c.addListener(_onControllerChanged);
-    _blinkTimer = Timer.periodic(const Duration(milliseconds: 530), (_) {
-      _caretBlink.value = !_caretBlink.value;
-    });
   }
 
   @override
   void dispose() {
-    _blinkTimer?.cancel();
+    _stopBlink();
     _caretBlink.dispose();
     _c.removeListener(_onControllerChanged);
     _focusNode.removeListener(_onFocusChanged);
     if (widget.focusNode == null) _focusNode.dispose();
     _sourceController.dispose();
     _connection?.close();
+    _disposeLayoutCache();
     super.dispose();
   }
 
@@ -81,11 +83,64 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
   void _onFocusChanged() {
     if (_focusNode.hasFocus) {
       _openConnection();
+      _startBlink();
     } else {
       _closeConnection();
+      _stopBlink();
     }
     if (mounted) setState(() {});
   }
+
+  // ── Caret blink (only runs while focused — no idle CPU/timer otherwise) ───
+
+  void _startBlink() {
+    if (_blinkTimer != null) return;
+    _caretBlink.value = true;
+    _blinkTimer = Timer.periodic(const Duration(milliseconds: 530), (_) {
+      _caretBlink.value = !_caretBlink.value;
+    });
+  }
+
+  void _stopBlink() {
+    _blinkTimer?.cancel();
+    _blinkTimer = null;
+    _caretBlink.value = false;
+  }
+
+  // ── Per-block text-layout cache (avoid re-shaping unchanged text) ─────────
+
+  /// Returns a laid-out [TextPainter] for [node] at [width], reusing the cache
+  /// unless the block's (immutable) delta or the width changed. Text shaping is
+  /// the dominant cost; this keeps a steady-state edit to one layout per frame
+  /// for the edited block and zero for the rest.
+  TextPainter _layoutFor(TextBlockNode node, double width) {
+    final style = _resolveStyle();
+    final cached = _layoutCache[node.id];
+    if (cached != null &&
+        cached.width == width &&
+        identical(cached.delta, node.delta) &&
+        cached.styleVersion == _styleVersion) {
+      return cached.painter;
+    }
+    cached?.painter.dispose();
+    final base = baseStyleFor(node, style);
+    final span = deltaToTextSpan(node.delta, base, style);
+    final painter = TextPainter(text: span, textDirection: TextDirection.ltr)
+      ..layout(maxWidth: width);
+    _layoutCache[node.id] =
+        _CachedLayout(width, node.delta, painter, _styleVersion);
+    return painter;
+  }
+
+  void _disposeLayoutCache() {
+    for (final c in _layoutCache.values) {
+      c.painter.dispose();
+    }
+    _layoutCache.clear();
+  }
+
+  /// Bumped when the resolved style changes so cached layouts invalidate.
+  int get _styleVersion => _resolveStyle().hashCode;
 
   // ── Active block + IME sync ──────────────────────────────────────────────
 
@@ -250,7 +305,7 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
 
   void _placeCaret(TextBlockNode node, Offset localPos, double width) {
     if (widget.readOnly) return;
-    final tp = _painterFor(node, width);
+    final tp = _layoutFor(node, width);
     final pos = tp.getPositionForOffset(localPos);
     _focusNode.requestFocus();
     _c.setSelection(DocumentSelection.collapsed(
@@ -260,7 +315,7 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
 
   void _extendSelection(TextBlockNode node, Offset localPos, double width) {
     if (widget.readOnly) return;
-    final tp = _painterFor(node, width);
+    final tp = _layoutFor(node, width);
     final pos = tp.getPositionForOffset(localPos);
     final sel = _c.selection;
     final base = (sel != null && sel.base.nodeId == node.id)
@@ -270,14 +325,6 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
       base: base,
       extent: DocumentPosition.text(node.id, pos.offset),
     ));
-  }
-
-  TextPainter _painterFor(TextBlockNode node, double width) {
-    final style = _resolveStyle();
-    final span = deltaToTextSpan(node.delta, baseStyleFor(node, style), style);
-    final tp = TextPainter(text: span, textDirection: TextDirection.ltr)
-      ..layout(maxWidth: width);
-    return tp;
   }
 
   // ── Build ────────────────────────────────────────────────────────────────
@@ -353,7 +400,6 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
 
   Widget _buildBlock(TextBlockNode node, EditorStyle style) {
     final base = baseStyleFor(node, style);
-    final span = deltaToTextSpan(node.delta, base, style);
     final sel = _c.selection;
 
     TextSelection? localSelection;
@@ -373,8 +419,7 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
       key: ValueKey('markey-block-${node.id}'),
       builder: (context, constraints) {
         final width = constraints.maxWidth;
-        final tp = TextPainter(text: span, textDirection: TextDirection.ltr)
-          ..layout(maxWidth: width);
+        final tp = _layoutFor(node, width); // cached: no re-shape if unchanged
         final height = math.max(tp.height, base.fontSize ?? 16);
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
@@ -384,7 +429,7 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
           child: CustomPaint(
             size: Size(width, height),
             painter: _BlockPainter(
-              span: span,
+              textPainter: tp,
               selection: localSelection,
               caretOffset: caretOffset,
               showCaret: showCaret,
@@ -462,9 +507,18 @@ class _MoveCaretIntent extends Intent {
 
 // ── Painter ────────────────────────────────────────────────────────────────
 
+/// A cached, laid-out block text layout (see `_MarkdownEditorState._layoutFor`).
+class _CachedLayout {
+  _CachedLayout(this.width, this.delta, this.painter, this.styleVersion);
+  final double width;
+  final Delta delta;
+  final TextPainter painter;
+  final int styleVersion;
+}
+
 class _BlockPainter extends CustomPainter {
   _BlockPainter({
-    required this.span,
+    required this.textPainter,
     required this.selection,
     required this.caretOffset,
     required this.showCaret,
@@ -473,7 +527,8 @@ class _BlockPainter extends CustomPainter {
     required this.caretColor,
   }) : super(repaint: caretBlink);
 
-  final InlineSpan span;
+  /// Pre-laid-out; the painter never re-shapes (caret blink only repaints).
+  final TextPainter textPainter;
   final TextSelection? selection;
   final int? caretOffset;
   final bool showCaret;
@@ -483,8 +538,7 @@ class _BlockPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final tp = TextPainter(text: span, textDirection: TextDirection.ltr)
-      ..layout(maxWidth: size.width);
+    final tp = textPainter;
 
     if (selection != null && !selection!.isCollapsed) {
       final boxes = tp.getBoxesForSelection(selection!);
@@ -509,7 +563,7 @@ class _BlockPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_BlockPainter old) =>
-      old.span != span ||
+      !identical(old.textPainter, textPainter) ||
       old.selection != selection ||
       old.caretOffset != caretOffset ||
       old.showCaret != showCaret ||
@@ -533,43 +587,59 @@ class _Toolbar extends StatelessWidget {
           elevation: 1,
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 2),
+            // Responsive: the formatting buttons scroll horizontally on narrow
+            // screens (mobile) so the bar never overflows; the mode toggle stays
+            // pinned at the trailing edge.
             child: Row(
               children: [
-                IconButton(
-                  key: const Key('markey_undo'),
-                  tooltip: 'Undo',
-                  icon: const Icon(Icons.undo),
-                  onPressed: controller.canUndo ? controller.undo : null,
+                Expanded(
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: Row(
+                      children: [
+                        IconButton(
+                          key: const Key('markey_undo'),
+                          tooltip: 'Undo',
+                          icon: const Icon(Icons.undo),
+                          onPressed: controller.canUndo ? controller.undo : null,
+                        ),
+                        IconButton(
+                          key: const Key('markey_redo'),
+                          tooltip: 'Redo',
+                          icon: const Icon(Icons.redo),
+                          onPressed: controller.canRedo ? controller.redo : null,
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton(
+                          key: const Key('markey_bold'),
+                          tooltip: 'Bold',
+                          icon: const Icon(Icons.format_bold),
+                          onPressed: isSource
+                              ? null
+                              : () => controller.toggleMark('bold'),
+                        ),
+                        IconButton(
+                          key: const Key('markey_italic'),
+                          tooltip: 'Italic',
+                          icon: const Icon(Icons.format_italic),
+                          onPressed: isSource
+                              ? null
+                              : () => controller.toggleMark('italic'),
+                        ),
+                        IconButton(
+                          key: const Key('markey_h1'),
+                          tooltip: 'Heading 1',
+                          icon: const Icon(Icons.title),
+                          onPressed: isSource
+                              ? null
+                              : () => controller.setBlockType(
+                                  BlockType.heading,
+                                  level: 1),
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
-                IconButton(
-                  key: const Key('markey_redo'),
-                  tooltip: 'Redo',
-                  icon: const Icon(Icons.redo),
-                  onPressed: controller.canRedo ? controller.redo : null,
-                ),
-                const SizedBox(width: 8),
-                IconButton(
-                  key: const Key('markey_bold'),
-                  tooltip: 'Bold',
-                  icon: const Icon(Icons.format_bold),
-                  onPressed: isSource ? null : () => controller.toggleMark('bold'),
-                ),
-                IconButton(
-                  key: const Key('markey_italic'),
-                  tooltip: 'Italic',
-                  icon: const Icon(Icons.format_italic),
-                  onPressed:
-                      isSource ? null : () => controller.toggleMark('italic'),
-                ),
-                IconButton(
-                  key: const Key('markey_h1'),
-                  tooltip: 'Heading 1',
-                  icon: const Icon(Icons.title),
-                  onPressed: isSource
-                      ? null
-                      : () => controller.setBlockType(BlockType.heading, level: 1),
-                ),
-                const Spacer(),
                 IconButton(
                   key: const Key('markey_toggle_mode'),
                   tooltip: isSource ? 'Rich text' : 'Markdown source',

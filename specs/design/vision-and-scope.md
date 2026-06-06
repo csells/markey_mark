@@ -86,6 +86,12 @@ The project succeeds when:
 - **Native Mermaid is built in stages by diagram type** (ADR-005). Diagram types our engine
   doesn't yet support degrade gracefully to a read-only source card — but rendering is always
   native Dart, never JS/WebView.
+- **Arbitrary raw HTML/CSS is not fully rendered.** With no WebView/JS, we render a safe known
+  HTML subset natively and show anything else verbatim (escaped/code) — never silently
+  dropped. Full arbitrary HTML+CSS fidelity is out of scope. See
+  [15-feature-feasibility-and-performance.md](./feature-feasibility-and-performance.md).
+- **Spell-check is platform-limited.** First-party spell-check exists only on Android/iOS;
+  elsewhere it's via an optional pluggable `SpellChecker`. Not a uniform native capability.
 
 ## Guiding principles
 

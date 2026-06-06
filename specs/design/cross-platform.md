@@ -24,8 +24,19 @@ targets** from one codebase, adapting to each platform's input and UI convention
 ⁴ Windows/Linux WebView is third-party (`flutter_inappwebview`/CEF); hence the default never
   relies on it and the deterministic SVG/PNG provider exists.
 
-**The headline:** the *editor itself* is ✅ everywhere. The only ⚠️ is the *optional* Mermaid
-WebView provider on Windows/Linux, which always has a native fallback.
+| Spell-check (system) | ✅ | ✅ | ⚠️⁵ | ❌⁵ | ❌⁵ | ❌⁵ |
+| Raw HTML/CSS (full) | ❌⁶ | ❌⁶ | ❌⁶ | ❌⁶ | ❌⁶ | ❌⁶ |
+
+⁵ First-party spell-check (`SpellCheckConfiguration`/`DefaultSpellCheckService`) is wired to the
+  OS only on Android/iOS; web/desktop have none — we expose a pluggable `SpellChecker` there.
+⁶ No WebView/JS (ADR-001) means no HTML/CSS engine on any platform; we render a safe HTML
+  subset and show the rest verbatim (never dropped). See
+  [15-feature-feasibility-and-performance.md](./feature-feasibility-and-performance.md).
+
+**The headline:** the *editor itself* — WYSIWYG, **syntax highlighting**, and the source
+editor — is ✅ everywhere. The bounded ⚠️/❌ items (native Mermaid staging, spell-check,
+arbitrary HTML/CSS, web IME parity) degrade gracefully and never compromise the core goals;
+full analysis and performance/responsiveness budgets are in doc 15.
 
 ## 08.2 Per-platform concerns
 

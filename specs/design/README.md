@@ -46,6 +46,7 @@ build (parser → layout → `CustomPainter`), not a JS bridge.
 | 12 | [bootstrap-reference.md](./bootstrap-reference.md) | Distilled, code-level implementation playbook mined from `super_editor` & `appflowy_editor` |
 | 13 | [data-structures-and-algorithms.md](./data-structures-and-algorithms.md) | Modern text-editing data structures & algorithms (per-block storage, block index, incremental parse, layout caching, grapheme cursor, CRDT door) |
 | 14 | [cross-ecosystem-best-practices.md](./cross-ecosystem-best-practices.md) | Best transferable ideas from the whole OSS landscape (ProseMirror, Lexical, CodeMirror, Slate, Quill, muya/Typora, Obsidian, remark/goldmark/markdown-it/pulldown-cmark) + gap list |
+| 15 | [feature-feasibility-and-performance.md](./feature-feasibility-and-performance.md) | What can/can't be done natively cross-platform (the 5 bounded compromises) + performance/latency/resource/responsiveness budgets and their tests |
 
 Supporting research lives in [`../research/`](../research/).
 

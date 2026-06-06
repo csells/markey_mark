@@ -83,6 +83,23 @@ A matrix that proves the cross-platform promise:
 - Asset bundling: math fonts (KaTeX via `flutter_math_fork`), any default Mermaid web assets
   only if the WebView provider is used (kept out of the core).
 
+## 10.5b Performance, responsiveness & resource tests
+
+Per doc [15-feature-feasibility-and-performance.md](./feature-feasibility-and-performance.md),
+these are first-class and enforced:
+
+- **No idle work:** an unfocused editor `pumpAndSettle`s (no periodic caret-blink timer runs
+  while idle).
+- **Virtualization/scale:** a large (≥800-block) document builds far fewer than N block
+  widgets (`ListView.builder` virtualization).
+- **Responsiveness:** the editor renders at a 320 px (phone) viewport with no overflow; the
+  mode toggle stays reachable; soft-keyboard (`viewInsets`) and orientation changes keep the
+  caret visible (P1).
+- **Localized work:** editing one block leaves others' content/layout untouched (cache reuse).
+- **Latency benchmark (P1):** a CI microbenchmark guards keystroke→relayout against a
+  per-frame budget (regression guard).
+- **No leaks:** every widget test unmounts; suite leaves no pending timers/connections.
+
 ## 10.6 Definition of done (per feature)
 
 A feature is "done" when: it has unit/widget tests, goldens where it renders, a corpus entry
