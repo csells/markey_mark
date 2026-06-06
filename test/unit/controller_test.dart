@@ -108,6 +108,17 @@ void main() {
       expect((c.document.nodes.first as TextBlockNode).level, 3);
     });
 
+    test('setCallout converts the active block into a callout quote', () {
+      c.setSelection(caret(id, 0));
+      c.insertText('Heads up');
+      c.setCallout('warning');
+      final n = c.document.nodes.first as TextBlockNode;
+      expect(n.type, BlockType.quote);
+      expect(n.callout, 'warning');
+      expect(n.delta.toPlainText(), 'Heads up');
+      expect(c.markdown, '> [!WARNING]\n> Heads up');
+    });
+
     test('backspace immediately after an input rule reverts the transform', () {
       c.setSelection(caret(id, 0));
       c.insertText('# ');

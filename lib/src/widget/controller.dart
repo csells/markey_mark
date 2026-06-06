@@ -222,6 +222,26 @@ class MarkdownEditorController extends ChangeNotifier {
     if (txn != null) _editor.apply(txn);
   }
 
+  /// Converts the active block into a GitHub-style callout/alert quote of
+  /// [kind] (`note`, `tip`, `important`, `warning`, `caution`), preserving its
+  /// text. A no-op if there is no active text block.
+  void setCallout(String kind) {
+    _canRevertRule = false;
+    final sel = selection;
+    if (sel == null) return;
+    final node = document.nodeById(sel.extent.nodeId);
+    if (node is! TextBlockNode) return;
+    final index = document.indexOfId(node.id);
+    final replacement =
+        TextBlockNode.quote(id: node.id, delta: node.delta, callout: kind);
+    _editor.apply(EditTransaction(
+      operations: [ReplaceNodeOp(index, node, replacement)],
+      selectionBefore: sel,
+      selectionAfter: sel,
+      tag: 'set-callout',
+    ));
+  }
+
   /// Toggles the checked state of the task-list item with [nodeId].
   void toggleTodo(String nodeId) {
     _canRevertRule = false;

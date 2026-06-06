@@ -69,6 +69,12 @@ final List<SlashMenuItem> defaultSlashItems = [
     apply: (c) => c.setBlockType(BlockType.quote),
   ),
   SlashMenuItem(
+    id: 'callout',
+    label: 'Callout (note)',
+    icon: Icons.info_outline,
+    apply: (c) => c.setCallout('note'),
+  ),
+  SlashMenuItem(
     id: 'code',
     label: 'Code block',
     icon: Icons.code,

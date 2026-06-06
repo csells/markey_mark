@@ -42,5 +42,11 @@ paragraphs — keep prefixing lines with `>`:
 > Second paragraph in the same callout.
 ````
 
+## Inserting from the editor
+
+In WYSIWYG mode, open the [slash menu](../editing/slash-menu.md) and choose
+**Callout (note)** to turn the current block into a note callout. You can also
+call `controller.setCallout('warning')` (or any kind) programmatically.
+
 In [HTML export](../editing/html-export.md), a callout becomes
 `<div class="callout callout-note">…</div>` so you can style it with CSS.

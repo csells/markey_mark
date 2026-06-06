@@ -107,6 +107,22 @@ void main() {
     await teardown(tester);
   });
 
+  testWidgets('selecting "Callout" converts the block to a callout quote',
+      (tester) async {
+    final c = await pump(tester);
+    tester.testTextInput.enterText('/callout');
+    await tester.pump();
+    final item = find.byKey(const Key('markey_slash_item_callout'));
+    await tester.ensureVisible(item);
+    await tester.pump();
+    await tester.tap(item);
+    await tester.pump();
+    final node = first(c);
+    expect(node.type, BlockType.quote);
+    expect(node.callout, 'note');
+    await teardown(tester);
+  });
+
   testWidgets('Escape dismisses the menu', (tester) async {
     await pump(tester);
     tester.testTextInput.enterText('/');
