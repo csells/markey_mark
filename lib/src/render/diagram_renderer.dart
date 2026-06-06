@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import '../diagram/mermaid_class.dart';
 import '../diagram/mermaid_er.dart';
 import '../diagram/mermaid_flowchart.dart';
+import '../diagram/mermaid_gantt.dart';
 import '../diagram/mermaid_pie.dart';
 import '../diagram/mermaid_sequence.dart';
 import '../diagram/mermaid_state.dart';
@@ -34,6 +35,23 @@ class NativeDiagramRenderer implements DiagramRenderer {
         padding: const EdgeInsets.all(12),
         alignment: Alignment.centerLeft,
         child: MermaidPieView(chart: pie, textStyle: style.baseTextStyle),
+      );
+    }
+    final gantt = parseGantt(node.source);
+    if (gantt != null) {
+      return Container(
+        key: ValueKey('markey-gantt-${node.id}'),
+        padding: const EdgeInsets.all(12),
+        alignment: Alignment.centerLeft,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: GanttView(
+            gantt: gantt,
+            textStyle: style.baseTextStyle,
+            barColor: style.caretColor.withValues(alpha: 0.7),
+            lineColor: style.caretColor,
+          ),
+        ),
       );
     }
     final seq = parseSequence(node.source);

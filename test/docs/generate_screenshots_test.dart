@@ -162,6 +162,12 @@ A native, cross-platform **WYSIWYG Markdown editor** for Flutter.
         size: const Size(760, 360));
   });
 
+  testWidgets('mermaid-gantt', (t) async {
+    await shoot(t, 'mermaid-gantt',
+        '```mermaid\ngantt\ntitle Roadmap\nsection Build\nSpec : 2024-01-01, 10d\nCode : 2024-01-11, 20d\nsection Ship\nRelease : 2024-02-01, 5d\n```',
+        size: const Size(760, 320));
+  });
+
   testWidgets('mermaid', (t) async {
     await shoot(t, 'mermaid',
         '```mermaid\nmindmap\n  root\n    a\n    b\n```');

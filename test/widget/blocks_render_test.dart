@@ -194,6 +194,16 @@ void main() {
     await teardown(tester);
   });
 
+  testWidgets('mermaid gantt chart renders natively', (tester) async {
+    final c = await pump(tester,
+        '```mermaid\ngantt\ntitle Plan\nsection S\nA : 2024-01-01, 3d\nB : 2024-01-04, 2d\n```');
+    final id = c.document.nodes.first.id;
+    expect(find.byKey(ValueKey('markey-gantt-$id')), findsOneWidget);
+    expect(find.byType(GanttView), findsOneWidget);
+    expect(find.text('mermaid'), findsNothing);
+    await teardown(tester);
+  });
+
   testWidgets('mermaid ER diagram renders natively (reuses class view)',
       (tester) async {
     await pump(tester,

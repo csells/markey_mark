@@ -80,9 +80,25 @@ Animal <|-- Cat
 Entity-relationship (`erDiagram`) diagrams render natively too, reusing the class-diagram
 boxes (entities with attributes + labeled relationships).
 
+## Gantt charts
+
+Gantt charts render natively as proportional bars grouped by section:
+
+![Native gantt chart](../images/mermaid-gantt.png)
+
+````markdown
+```mermaid
+gantt
+title Roadmap
+section Build
+Spec : 2024-01-01, 10d
+Code : 2024-01-11, 20d
+```
+````
+
 ## Other types
 
-Diagram types the native engine doesn't yet support (e.g. gantt, journey, mindmap) degrade
+Diagram types the native engine doesn't yet support (e.g. journey, mindmap, timeline) degrade
 gracefully to a readable **source card** with a `mermaid` badge:
 
 ![Mermaid source-card fallback](../images/mermaid.png)

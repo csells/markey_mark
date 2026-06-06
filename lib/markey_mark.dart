@@ -81,3 +81,5 @@ export 'src/diagram/mermaid_class.dart'
         parseClassDiagram,
         ClassDiagramView;
 export 'src/diagram/mermaid_er.dart' show parseEntityRelationship;
+export 'src/diagram/mermaid_gantt.dart'
+    show Gantt, GanttTask, parseGantt, GanttView;
