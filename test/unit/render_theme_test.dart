@@ -29,6 +29,7 @@ void main() {
         linkColor: Color(0xFF000000),
         selectionColor: Color(0x33000000),
         caretColor: Color(0xFF000000),
+        highlightColor: Color(0xFFFFF59D),
       );
       expect(s.headingStyle(2), s.baseTextStyle);
     });
@@ -67,6 +68,12 @@ void main() {
       expect(children[1].style!.fontStyle, FontStyle.italic);
       expect(children[2].style!.decoration, isNotNull);
       expect(children[4].style!.color, style.linkColor);
+    });
+
+    test('applies highlight background colour', () {
+      final s = styleForAttributes(
+          const {'highlight': true}, style.baseTextStyle, style);
+      expect(s.backgroundColor, style.highlightColor);
     });
 
     test('strike combines with an existing decoration on the base', () {

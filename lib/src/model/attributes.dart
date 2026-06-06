@@ -15,6 +15,10 @@ abstract final class InlineAttr {
   static const String bold = 'bold';
   static const String italic = 'italic';
   static const String strike = 'strike';
+
+  /// Highlighted / marked text (`==text==`).
+  static const String highlight = 'highlight';
+
   static const String code = 'code';
 
   /// Link href (value is the URL string).

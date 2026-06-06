@@ -13,11 +13,13 @@ class HtmlEncoder {
   const HtmlEncoder();
 
   static const Map<String, String> _wrappingTags = {
+    InlineAttr.highlight: 'mark',
     InlineAttr.bold: 'strong',
     InlineAttr.italic: 'em',
     InlineAttr.strike: 'del',
   };
   static const List<String> _wrappingOrder = [
+    InlineAttr.highlight,
     InlineAttr.bold,
     InlineAttr.italic,
     InlineAttr.strike,

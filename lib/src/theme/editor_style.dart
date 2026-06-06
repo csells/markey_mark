@@ -11,6 +11,7 @@ class EditorStyle {
     required this.linkColor,
     required this.selectionColor,
     required this.caretColor,
+    required this.highlightColor,
     this.padding = const EdgeInsets.all(16),
     this.blockSpacing = 12,
   });
@@ -23,6 +24,9 @@ class EditorStyle {
   final Color linkColor;
   final Color selectionColor;
   final Color caretColor;
+
+  /// Background colour for `==highlighted==` text.
+  final Color highlightColor;
   final EdgeInsets padding;
   final double blockSpacing;
 
@@ -53,6 +57,7 @@ class EditorStyle {
       linkColor: scheme.primary,
       selectionColor: scheme.primary.withValues(alpha: 0.3),
       caretColor: scheme.primary,
+      highlightColor: const Color(0xFFFFF59D), // soft yellow
     );
   }
 
@@ -63,6 +68,7 @@ class EditorStyle {
     Color? linkColor,
     Color? selectionColor,
     Color? caretColor,
+    Color? highlightColor,
     EdgeInsets? padding,
     double? blockSpacing,
   }) =>
@@ -73,6 +79,7 @@ class EditorStyle {
         linkColor: linkColor ?? this.linkColor,
         selectionColor: selectionColor ?? this.selectionColor,
         caretColor: caretColor ?? this.caretColor,
+        highlightColor: highlightColor ?? this.highlightColor,
         padding: padding ?? this.padding,
         blockSpacing: blockSpacing ?? this.blockSpacing,
       );

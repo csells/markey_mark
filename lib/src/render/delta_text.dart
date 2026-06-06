@@ -34,6 +34,9 @@ TextStyle styleForAttributes(Attributes attrs, TextStyle base, EditorStyle es) {
       ]),
     );
   }
+  if (attrs[InlineAttr.highlight] == true) {
+    s = s.copyWith(backgroundColor: es.highlightColor);
+  }
   if (attrs[InlineAttr.code] == true) {
     s = s.merge(es.codeTextStyle).copyWith(fontSize: base.fontSize);
   }

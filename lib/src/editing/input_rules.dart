@@ -231,6 +231,7 @@ final List<InputRule> defaultInputRules = [
   // Inline wrap rules.
   WrapInputRule(pattern: RegExp(r'\*\*([^*]+)\*\*$'), attr: 'bold'),
   WrapInputRule(pattern: RegExp(r'~~([^~]+)~~$'), attr: 'strike'),
+  WrapInputRule(pattern: RegExp(r'==([^=]+)==$'), attr: 'highlight'),
   WrapInputRule(pattern: RegExp(r'(?<![\w_])_([^_]+)_$'), attr: 'italic'),
   WrapInputRule(pattern: RegExp(r'`([^`]+)`$'), attr: 'code'),
 ];

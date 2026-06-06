@@ -16,11 +16,13 @@ class MarkdownEncoder {
 
   /// Wrapping inline marks in nesting order (outer → inner) with their markers.
   static const List<String> _wrapping = [
+    InlineAttr.highlight,
     InlineAttr.bold,
     InlineAttr.italic,
     InlineAttr.strike,
   ];
   static const Map<String, String> _markers = {
+    InlineAttr.highlight: '==',
     InlineAttr.bold: '**',
     InlineAttr.italic: '_',
     InlineAttr.strike: '~~',

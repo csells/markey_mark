@@ -116,5 +116,13 @@ void main() {
       expect(first(c).delta.runs.single.attributes, {'code': true});
       await teardown(tester);
     });
+
+    testWidgets('==highlight==', (tester) async {
+      final c = await pump(tester);
+      tester.testTextInput.enterText('==h==');
+      await tester.pump();
+      expect(first(c).delta.runs.single.attributes, {'highlight': true});
+      await teardown(tester);
+    });
   });
 }

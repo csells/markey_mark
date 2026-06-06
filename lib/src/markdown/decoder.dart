@@ -17,7 +17,7 @@ class MarkdownDecoder {
   md.Document _newMdDocument() => md.Document(
         extensionSet: md.ExtensionSet.gitHubFlavored,
         blockSyntaxes: [MathBlockSyntax(), DefinitionListSyntax()],
-        inlineSyntaxes: [MathInlineSyntax(), md.EmojiSyntax()],
+        inlineSyntaxes: [MathInlineSyntax(), HighlightSyntax(), md.EmojiSyntax()],
         encodeHtml: false,
       );
 
@@ -418,6 +418,8 @@ class _InlineMapper implements md.NodeVisitor {
         _stack.add(const {InlineAttr.italic: true});
       case 'del':
         _stack.add(const {InlineAttr.strike: true});
+      case 'mark':
+        _stack.add(const {InlineAttr.highlight: true});
       case 'code':
         _stack.add(const {InlineAttr.code: true});
         // Inline code content is a Text child; emit it directly and skip.
@@ -482,6 +484,18 @@ class MathBlockSyntax extends md.BlockSyntax {
     }
     return md.Element.text('math_block', lines.join('\n'));
   }
+}
+
+/// A custom inline syntax for `==text==` highlight, producing a `mark` element.
+/// Uses a delimiter run so it nests with other inline marks.
+class HighlightSyntax extends md.DelimiterSyntax {
+  HighlightSyntax()
+      : super(
+          '==',
+          requiresDelimiterRun: true,
+          allowIntraWord: false,
+          tags: [md.DelimiterTag('mark', 2)],
+        );
 }
 
 /// A custom inline syntax for `$...$` math, producing a `math` element whose
