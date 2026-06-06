@@ -73,6 +73,13 @@ export 'src/diagram/mermaid_journey.dart'
         JourneyTask,
         parseJourney,
         MermaidJourneyView;
+export 'src/diagram/mermaid_timeline.dart'
+    show
+        Timeline,
+        TimelineSection,
+        TimelinePeriod,
+        parseTimeline,
+        MermaidTimelineView;
 export 'src/diagram/mermaid_sequence.dart'
     show SequenceDiagram, SeqMessage, parseSequence, SequenceDiagramView;
 export 'src/diagram/mermaid_flowchart.dart'

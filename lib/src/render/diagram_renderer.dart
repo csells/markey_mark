@@ -8,6 +8,7 @@ import '../diagram/mermaid_journey.dart';
 import '../diagram/mermaid_pie.dart';
 import '../diagram/mermaid_sequence.dart';
 import '../diagram/mermaid_state.dart';
+import '../diagram/mermaid_timeline.dart';
 import '../model/node.dart';
 import '../theme/editor_style.dart';
 
@@ -67,6 +68,24 @@ class NativeDiagramRenderer implements DiagramRenderer {
             journey: journey,
             textStyle: style.baseTextStyle,
             lineColor: style.caretColor,
+          ),
+        ),
+      );
+    }
+    final timeline = parseTimeline(node.source);
+    if (timeline != null) {
+      return Container(
+        key: ValueKey('markey-timeline-${node.id}'),
+        padding: const EdgeInsets.all(12),
+        alignment: Alignment.centerLeft,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: MermaidTimelineView(
+            timeline: timeline,
+            textStyle: style.baseTextStyle,
+            lineColor: style.caretColor,
+            fillColor: style.codeTextStyle.backgroundColor ??
+                style.caretColor.withValues(alpha: 0.08),
           ),
         ),
       );

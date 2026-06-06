@@ -114,9 +114,24 @@ section Go home
 ```
 ````
 
+## Timelines
+
+Timeline diagrams render natively as period chips laid out left-to-right, each
+with its events listed beneath, grouped into sections when present:
+
+````markdown
+```mermaid
+timeline
+title History of Social Media
+2002 : LinkedIn
+2004 : Facebook : Google
+2005 : YouTube
+```
+````
+
 ## Other types
 
-Diagram types the native engine doesn't yet support (e.g. mindmap, timeline) degrade
+Diagram types the native engine doesn't yet support (e.g. mindmap) degrade
 gracefully to a readable **source card** with a `mermaid` badge:
 
 ![Mermaid source-card fallback](../images/mermaid.png)

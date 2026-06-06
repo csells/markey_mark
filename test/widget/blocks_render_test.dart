@@ -272,6 +272,16 @@ void main() {
     await teardown(tester);
   });
 
+  testWidgets('mermaid timeline diagram renders natively', (tester) async {
+    final c = await pump(tester,
+        '```mermaid\ntimeline\ntitle Social media\n2002 : LinkedIn\n2004 : Facebook : Google\n```');
+    final id = c.document.nodes.first.id;
+    expect(find.byKey(ValueKey('markey-timeline-$id')), findsOneWidget);
+    expect(find.byType(MermaidTimelineView), findsOneWidget);
+    expect(find.text('mermaid'), findsNothing);
+    await teardown(tester);
+  });
+
   testWidgets('mermaid sequence diagram renders natively', (tester) async {
     final c = await pump(tester,
         '```mermaid\nsequenceDiagram\nAlice->>Bob: Hi\nBob-->>Alice: Hey\n```');
