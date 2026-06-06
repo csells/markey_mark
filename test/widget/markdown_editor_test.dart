@@ -171,6 +171,31 @@ void main() {
       await teardown(tester);
     });
 
+    testWidgets('backspace reverts an input rule (typed via the UI)',
+        (tester) async {
+      final c = MarkdownEditorController();
+      addTearDown(c.dispose);
+      await pumpEditor(tester, c);
+      await tester.tap(firstBlock(c));
+      await tester.pump();
+
+      tester.testTextInput.enterText('**hi**');
+      await tester.pump();
+      expect(
+        (c.document.nodes.first as TextBlockNode).delta.runs.single.attributes,
+        {'bold': true},
+      );
+
+      // After the rule, the IME mirrors the stripped text 'hi'; a backspace
+      // sends one fewer character.
+      tester.testTextInput.enterText('h');
+      await tester.pump();
+      final n = c.document.nodes.first as TextBlockNode;
+      expect(n.delta.toPlainText(), '**hi**');
+      expect(n.delta.runs.single.attributes, isEmpty);
+      await teardown(tester);
+    });
+
     testWidgets('backspace deletes a character', (tester) async {
       final c = MarkdownEditorController(markdown: 'Hello');
       addTearDown(c.dispose);

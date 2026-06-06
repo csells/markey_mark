@@ -43,6 +43,10 @@ class MarkdownEditorController extends ChangeNotifier {
   EditorMode _mode = EditorMode.wysiwyg;
   String _sourceText = '';
 
+  /// True immediately after an input rule fired, so the next backspace reverts
+  /// the auto-transform instead of deleting (ProseMirror `undoInputRule`).
+  bool _canRevertRule = false;
+
   void _onEditorChanged() => notifyListeners();
 
   // ── State accessors ──────────────────────────────────────────────────────
@@ -94,43 +98,63 @@ class MarkdownEditorController extends ChangeNotifier {
   // ── Editing intents (route through the command pipeline) ─────────────────
 
   /// Inserts [text] at the caret (replacing any selection), then applies input
-  /// rules.
+  /// rules. If a rule fires, arms the backspace-revert.
   void insertText(String text) {
+    _canRevertRule = false;
     final txn = EditCommands.insertText(document, selection, text);
     if (txn == null) return;
     _editor.apply(txn);
     final rule = applyInputRules(document, selection, rules: inputRules);
-    if (rule != null) _editor.apply(rule);
+    if (rule != null) {
+      _editor.apply(rule);
+      _canRevertRule = true; // the rule txn is now top of the undo stack
+    }
   }
 
   void deleteBackward() {
+    if (_canRevertRule) {
+      _canRevertRule = false;
+      _editor.undo(); // revert the just-applied input rule as one unit
+      return;
+    }
     final txn = EditCommands.deleteBackward(document, selection);
     if (txn != null) _editor.apply(txn);
   }
 
   void splitBlock() {
+    _canRevertRule = false;
     final txn = EditCommands.splitBlock(document, selection);
     if (txn != null) _editor.apply(txn);
   }
 
   void toggleMark(String key) {
+    _canRevertRule = false;
     final txn = EditCommands.toggleMark(document, selection, key);
     if (txn != null) _editor.apply(txn);
   }
 
   void setBlockType(String type, {int? level}) {
+    _canRevertRule = false;
     final txn = EditCommands.setBlockType(document, selection, type, level: level);
     if (txn != null) _editor.apply(txn);
   }
 
   /// Toggles the checked state of the task-list item with [nodeId].
   void toggleTodo(String nodeId) {
+    _canRevertRule = false;
     final txn = EditCommands.toggleTodo(document, nodeId, selection);
     if (txn != null) _editor.apply(txn);
   }
 
-  void undo() => _editor.undo();
-  void redo() => _editor.redo();
+  void undo() {
+    _canRevertRule = false;
+    _editor.undo();
+  }
+
+  void redo() {
+    _canRevertRule = false;
+    _editor.redo();
+  }
 
   // ── Caret movement (grapheme-aware, crossing blocks) ─────────────────────
 
@@ -138,6 +162,7 @@ class MarkdownEditorController extends ChangeNotifier {
   void moveCaretRight() => _moveCaret(forward: true);
 
   void _moveCaret({required bool forward}) {
+    _canRevertRule = false;
     final sel = selection;
     if (sel == null) return;
     final node = document.nodeById(sel.extent.nodeId);

@@ -108,6 +108,32 @@ void main() {
       expect((c.document.nodes.first as TextBlockNode).level, 3);
     });
 
+    test('backspace immediately after an input rule reverts the transform', () {
+      c.setSelection(caret(id, 0));
+      c.insertText('# ');
+      expect((c.document.nodes.first as TextBlockNode).type, BlockType.heading);
+      c.deleteBackward();
+      final n = c.document.nodes.first as TextBlockNode;
+      expect(n.type, BlockType.paragraph);
+      expect(n.delta.toPlainText(), '# ');
+    });
+
+    test('backspace after a normal edit deletes a character (no revert)', () {
+      c.setSelection(caret(id, 0));
+      c.insertText('ab');
+      c.deleteBackward();
+      expect(firstText(c), 'a');
+    });
+
+    test('caret movement disarms the rule-revert', () {
+      c.setSelection(caret(id, 0));
+      c.insertText('# '); // heading
+      c.moveCaretLeft();
+      c.deleteBackward();
+      // Not reverted: still a heading (the move disarmed the revert).
+      expect((c.document.nodes.first as TextBlockNode).type, BlockType.heading);
+    });
+
     test('undo/redo', () {
       c.setSelection(caret(id, 0));
       c.insertText('X');
