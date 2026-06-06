@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../diagram/mermaid_class.dart';
 import '../diagram/mermaid_flowchart.dart';
 import '../diagram/mermaid_pie.dart';
 import '../diagram/mermaid_sequence.dart';
@@ -46,6 +47,24 @@ class NativeDiagramRenderer implements DiagramRenderer {
             diagram: seq,
             textStyle: style.baseTextStyle,
             lineColor: style.caretColor,
+          ),
+        ),
+      );
+    }
+    final cls = parseClassDiagram(node.source);
+    if (cls != null) {
+      return Container(
+        key: ValueKey('markey-class-${node.id}'),
+        padding: const EdgeInsets.all(12),
+        alignment: Alignment.centerLeft,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: ClassDiagramView(
+            diagram: cls,
+            textStyle: style.baseTextStyle,
+            lineColor: style.caretColor,
+            fillColor: style.codeTextStyle.backgroundColor ??
+                style.caretColor.withValues(alpha: 0.08),
           ),
         ),
       );

@@ -184,9 +184,19 @@ void main() {
     await teardown(tester);
   });
 
+  testWidgets('mermaid class diagram renders natively', (tester) async {
+    final c = await pump(tester,
+        '```mermaid\nclassDiagram\nAnimal <|-- Dog\nAnimal : +String name\n```');
+    final id = c.document.nodes.first.id;
+    expect(find.byKey(ValueKey('markey-class-$id')), findsOneWidget);
+    expect(find.byType(ClassDiagramView), findsOneWidget);
+    expect(find.text('mermaid'), findsNothing);
+    await teardown(tester);
+  });
+
   testWidgets('an unsupported diagram type degrades to the source card',
       (tester) async {
-    final c = await pump(tester, '```mermaid\nclassDiagram\nAnimal <|-- Dog\n```');
+    final c = await pump(tester, '```mermaid\nmindmap\n  root\n    a\n```');
     final id = c.document.nodes.first.id;
     expect(find.byKey(ValueKey('markey-mermaid-$id')), findsOneWidget);
     expect(find.text('mermaid'), findsOneWidget);

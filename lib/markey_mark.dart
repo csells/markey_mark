@@ -72,3 +72,11 @@ export 'src/diagram/mermaid_flowchart.dart'
         parseFlowchart,
         FlowchartView;
 export 'src/diagram/mermaid_state.dart' show parseStateDiagram;
+export 'src/diagram/mermaid_class.dart'
+    show
+        ClassDiagram,
+        ClassBox,
+        ClassRelation,
+        ClassRelationKind,
+        parseClassDiagram,
+        ClassDiagramView;

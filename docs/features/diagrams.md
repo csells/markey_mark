@@ -59,9 +59,27 @@ stateDiagram-v2
 ```
 ````
 
+## Class diagrams
+
+Class diagrams render natively too — boxes with members and typed relationship markers:
+
+![Native class diagram](../images/mermaid-class.png)
+
+````markdown
+```mermaid
+classDiagram
+class Animal {
++String name
++makeSound()
+}
+Animal <|-- Dog
+Animal <|-- Cat
+```
+````
+
 ## Other types
 
-Diagram types the native engine doesn't yet support (e.g. class, gantt, ER) degrade
+Diagram types the native engine doesn't yet support (e.g. gantt, ER, mindmap) degrade
 gracefully to a readable **source card** with a `mermaid` badge:
 
 ![Mermaid source-card fallback](../images/mermaid.png)
