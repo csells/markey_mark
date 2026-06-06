@@ -471,6 +471,9 @@ class MarkdownEditorController extends ChangeNotifier {
     );
   }
 
+  /// Serializes the current document to semantic HTML.
+  String toHtml() => Markdown.toHtml(document);
+
   /// Returns the document's headings in order as an [OutlineEntry] list,
   /// suitable for a table-of-contents / navigation pane.
   List<OutlineEntry> outline() {

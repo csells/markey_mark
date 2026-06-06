@@ -57,6 +57,7 @@ nav:
       - Find & replace: editing/find-replace.md
       - Undo & redo: editing/undo-redo.md
       - Document statistics: editing/document-stats.md
+      - HTML export: editing/html-export.md
       - Real-time collaboration: editing/collaboration.md
   - Reference:
       - Architecture: architecture.md
