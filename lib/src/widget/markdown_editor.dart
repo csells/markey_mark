@@ -5,6 +5,8 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
+import 'package:super_clipboard/super_clipboard.dart' as sc;
+import 'package:super_drag_and_drop/super_drag_and_drop.dart' as sdd;
 
 import '../editing/search.dart';
 import '../model/attributes.dart';
@@ -20,6 +22,7 @@ import '../theme/editor_style.dart';
 import '../ui/slash_menu.dart';
 import 'clipboard.dart';
 import 'controller.dart';
+import 'drop.dart';
 
 /// A native, cross-platform WYSIWYG Markdown editor widget.
 ///
@@ -38,6 +41,7 @@ class MarkdownEditor extends StatefulWidget {
     this.diagramRenderer = const NativeDiagramRenderer(),
     this.onChanged,
     this.clipboard = const SystemClipboardBridge(),
+    this.enableDrop = true,
   });
 
   final MarkdownEditorController controller;
@@ -60,6 +64,11 @@ class MarkdownEditor extends StatefulWidget {
   /// plain-text [SystemClipboardBridge]; pass a [SuperClipboardBridge] for
   /// rich multi-flavor OS clipboard support.
   final ClipboardBridge clipboard;
+
+  /// Whether to accept OS drag-and-drop of text/images (native
+  /// `super_drag_and_drop`, no JavaScript). On by default; read-only editors
+  /// never accept drops.
+  final bool enableDrop;
 
   @override
   State<MarkdownEditor> createState() => _MarkdownEditorState();
@@ -518,7 +527,7 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
   Widget build(BuildContext context) {
     final style = _resolveStyle();
     final body = _c.mode == EditorMode.source ? _buildSource() : _buildWysiwyg();
-    return Column(
+    Widget content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (widget.showToolbar) _Toolbar(controller: _c),
@@ -526,6 +535,67 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
         Expanded(child: body),
       ],
     );
+    // Accept OS drag-and-drop of text/images (native super_drag_and_drop; no JS).
+    if (widget.enableDrop && !widget.readOnly) {
+      content = sdd.DropRegion(
+        formats: const [
+          sc.Formats.plainText,
+          sc.Formats.htmlText,
+          sc.Formats.fileUri,
+          sc.Formats.uri,
+        ],
+        hitTestBehavior: HitTestBehavior.opaque,
+        onDropOver: (_) => sdd.DropOperation.copy,
+        onPerformDrop: _onPerformDrop,
+        child: content,
+      );
+    }
+    return content;
+  }
+
+  Future<void> _onPerformDrop(sdd.PerformDropEvent event) async {
+    final items = <DroppedItem>[];
+    for (final item in event.session.items) {
+      final reader = item.dataReader;
+      if (reader == null) continue;
+      if (reader.canProvide(sc.Formats.plainText)) {
+        final text = await _readValue(reader, sc.Formats.plainText);
+        if (text != null && text.isNotEmpty) items.add(DroppedItem.text(text));
+      } else if (reader.canProvide(sc.Formats.fileUri)) {
+        final uri = await _readValue(reader, sc.Formats.fileUri);
+        if (uri != null) {
+          final s = uri.toString();
+          items.add(_looksLikeImage(s)
+              ? DroppedItem.image(s)
+              : DroppedItem.text(s));
+        }
+      }
+    }
+    if (items.isNotEmpty) _c.applyDrop(items);
+  }
+
+  /// Adapts super_clipboard's callback-based [sc.DataReader.getValue] to a
+  /// Future.
+  Future<T?> _readValue<T extends Object>(
+      sc.DataReader reader, sc.ValueFormat<T> format) {
+    final completer = Completer<T?>();
+    reader.getValue<T>(
+      format,
+      (value) => completer.complete(value),
+      onError: (_) => completer.complete(null),
+    );
+    return completer.future;
+  }
+
+  static bool _looksLikeImage(String path) {
+    final lower = path.toLowerCase();
+    return lower.endsWith('.png') ||
+        lower.endsWith('.jpg') ||
+        lower.endsWith('.jpeg') ||
+        lower.endsWith('.gif') ||
+        lower.endsWith('.webp') ||
+        lower.endsWith('.bmp') ||
+        lower.endsWith('.svg');
   }
 
   Widget _buildFindBar(EditorStyle style) {

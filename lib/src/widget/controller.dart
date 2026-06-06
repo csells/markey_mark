@@ -17,6 +17,7 @@ import '../model/selection.dart';
 import '../markdown/markdown.dart';
 import '../markdown/slug.dart';
 import 'clipboard.dart';
+import 'drop.dart';
 
 /// Which view the editor is presenting.
 enum EditorMode {
@@ -301,6 +302,25 @@ class MarkdownEditorController extends ChangeNotifier {
           DocumentSelection.collapsed(DocumentPosition.text(para.id, 0)),
       tag: 'insert-block',
     ));
+  }
+
+  // ── Drag & drop ──────────────────────────────────────────────────────────
+
+  /// Inserts dropped [items] at the caret (or at [at], if given). Text items are
+  /// smart-pasted as Markdown; image items become image blocks.
+  void applyDrop(List<DroppedItem> items, {DocumentPosition? at}) {
+    if (at != null) setSelection(DocumentSelection.collapsed(at));
+    for (final item in items) {
+      switch (item.kind) {
+        case DropKind.text:
+          pasteMarkdown(item.value);
+        case DropKind.image:
+          // Don't clobber existing text: drop the image onto its own line.
+          final node = document.nodeById(selection?.extent.nodeId ?? '');
+          if (node is TextBlockNode && node.delta.isNotEmpty) splitBlock();
+          insertImage(item.value, alt: item.alt);
+      }
+    }
   }
 
   // ── Smart paste ──────────────────────────────────────────────────────────

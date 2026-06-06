@@ -58,7 +58,7 @@ void main() {
                 height: size.height,
                 child: Material(
                   color: Colors.white,
-                  child: MarkdownEditor(controller: controller),
+                  child: MarkdownEditor(controller: controller, enableDrop: false),
                 ),
               ),
             ),
@@ -194,7 +194,7 @@ A native, cross-platform **WYSIWYG Markdown editor** for Flutter.
               height: 300,
               child: Material(
                   color: Colors.white,
-                  child: MarkdownEditor(controller: controller)),
+                  child: MarkdownEditor(controller: controller, enableDrop: false)),
             ),
           ),
         ),
