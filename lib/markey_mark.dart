@@ -80,6 +80,8 @@ export 'src/diagram/mermaid_timeline.dart'
         TimelinePeriod,
         parseTimeline,
         MermaidTimelineView;
+export 'src/diagram/mermaid_mindmap.dart'
+    show Mindmap, MindmapNode, parseMindmap, MermaidMindmapView;
 export 'src/diagram/mermaid_sequence.dart'
     show SequenceDiagram, SeqMessage, parseSequence, SequenceDiagramView;
 export 'src/diagram/mermaid_flowchart.dart'

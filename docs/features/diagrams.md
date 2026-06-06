@@ -129,9 +129,26 @@ title History of Social Media
 ```
 ````
 
+## Mindmaps
+
+Mindmaps render natively as an indented tree (indentation defines the
+hierarchy), with shape decorations like `((circle))`, `[square]` and `(round)`
+stripped to their text:
+
+````markdown
+```mermaid
+mindmap
+  root((Ideas))
+    Origins
+      Long history
+    Research
+      On effectiveness
+```
+````
+
 ## Other types
 
-Diagram types the native engine doesn't yet support (e.g. mindmap) degrade
+Remaining diagram types the native engine doesn't yet support degrade
 gracefully to a readable **source card** with a `mermaid` badge:
 
 ![Mermaid source-card fallback](../images/mermaid.png)

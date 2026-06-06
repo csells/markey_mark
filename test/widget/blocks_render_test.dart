@@ -244,10 +244,20 @@ void main() {
 
   testWidgets('an unsupported diagram type degrades to the source card',
       (tester) async {
-    final c = await pump(tester, '```mermaid\nmindmap\n  root\n    a\n```');
+    final c = await pump(tester, '```mermaid\nquadrantChart\n  x-axis a\n```');
     final id = c.document.nodes.first.id;
     expect(find.byKey(ValueKey('markey-mermaid-$id')), findsOneWidget);
     expect(find.text('mermaid'), findsOneWidget);
+    await teardown(tester);
+  });
+
+  testWidgets('mermaid mindmap renders natively', (tester) async {
+    final c = await pump(tester,
+        '```mermaid\nmindmap\n  root((Ideas))\n    Origins\n    Research\n```');
+    final id = c.document.nodes.first.id;
+    expect(find.byKey(ValueKey('markey-mindmap-$id')), findsOneWidget);
+    expect(find.byType(MermaidMindmapView), findsOneWidget);
+    expect(find.text('mermaid'), findsNothing);
     await teardown(tester);
   });
 

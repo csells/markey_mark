@@ -5,6 +5,7 @@ import '../diagram/mermaid_er.dart';
 import '../diagram/mermaid_flowchart.dart';
 import '../diagram/mermaid_gantt.dart';
 import '../diagram/mermaid_journey.dart';
+import '../diagram/mermaid_mindmap.dart';
 import '../diagram/mermaid_pie.dart';
 import '../diagram/mermaid_sequence.dart';
 import '../diagram/mermaid_state.dart';
@@ -68,6 +69,24 @@ class NativeDiagramRenderer implements DiagramRenderer {
             journey: journey,
             textStyle: style.baseTextStyle,
             lineColor: style.caretColor,
+          ),
+        ),
+      );
+    }
+    final mindmap = parseMindmap(node.source);
+    if (mindmap != null) {
+      return Container(
+        key: ValueKey('markey-mindmap-${node.id}'),
+        padding: const EdgeInsets.all(12),
+        alignment: Alignment.centerLeft,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: MermaidMindmapView(
+            mindmap: mindmap,
+            textStyle: style.baseTextStyle,
+            lineColor: style.caretColor,
+            fillColor: style.codeTextStyle.backgroundColor ??
+                style.caretColor.withValues(alpha: 0.08),
           ),
         ),
       );
