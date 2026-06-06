@@ -35,6 +35,7 @@ class MarkdownEditor extends StatefulWidget {
     this.focusNode,
     this.slashItems,
     this.diagramRenderer = const NativeDiagramRenderer(),
+    this.onChanged,
   });
 
   final MarkdownEditorController controller;
@@ -48,6 +49,10 @@ class MarkdownEditor extends StatefulWidget {
 
   /// Renders Mermaid diagrams. Defaults to a native source card.
   final DiagramRenderer diagramRenderer;
+
+  /// Called with the document's Markdown whenever the content changes (not on
+  /// selection-only changes). Convenient for autosave.
+  final ValueChanged<String>? onChanged;
 
   @override
   State<MarkdownEditor> createState() => _MarkdownEditorState();
@@ -91,6 +96,7 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
     super.initState();
     _focusNode = widget.focusNode ?? FocusNode();
     _focusNode.addListener(_onFocusChanged);
+    _lastDoc = _c.document;
     _c.addListener(_onControllerChanged);
   }
 
@@ -109,7 +115,14 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
     super.dispose();
   }
 
+  Object? _lastDoc;
+
   void _onControllerChanged() {
+    // Fire onChanged only when the (immutable) document actually changed.
+    if (widget.onChanged != null && !identical(_lastDoc, _c.document)) {
+      _lastDoc = _c.document;
+      widget.onChanged!(_c.markdown);
+    }
     // Re-arm the slash menu once the `/` query is gone.
     if (_activeSlashQuery() == null) _slashSuppressed = false;
     if (mounted) setState(_syncImeFromModel);

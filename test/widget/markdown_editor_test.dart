@@ -372,6 +372,38 @@ void main() {
     });
   });
 
+  group('onChanged', () {
+    testWidgets('fires with updated Markdown on edits, not on selection',
+        (tester) async {
+      final c = MarkdownEditorController();
+      addTearDown(c.dispose);
+      final emitted = <String>[];
+      await tester.pumpWidget(MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 600,
+            height: 400,
+            child: MarkdownEditor(controller: c, onChanged: emitted.add),
+          ),
+        ),
+      ));
+      await tester.pump();
+      await tester.tap(firstBlock(c));
+      await tester.pump();
+      final before = emitted.length;
+      // selection-only change should not emit
+      c.setSelection(DocumentSelection.collapsed(
+          DocumentPosition.text(c.document.nodes.first.id, 0)));
+      await tester.pump();
+      expect(emitted.length, before);
+
+      tester.testTextInput.enterText('Hello');
+      await tester.pump();
+      expect(emitted.last, 'Hello');
+      await teardown(tester);
+    });
+  });
+
   group('IME client details', () {
     testWidgets('selection-only IME change updates the model selection',
         (tester) async {
