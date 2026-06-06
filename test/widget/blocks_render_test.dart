@@ -158,6 +158,16 @@ void main() {
     await teardown(tester);
   });
 
+  testWidgets('mermaid sequence diagram renders natively', (tester) async {
+    final c = await pump(tester,
+        '```mermaid\nsequenceDiagram\nAlice->>Bob: Hi\nBob-->>Alice: Hey\n```');
+    final id = c.document.nodes.first.id;
+    expect(find.byKey(ValueKey('markey-sequence-$id')), findsOneWidget);
+    expect(find.byType(SequenceDiagramView), findsOneWidget);
+    expect(find.text('mermaid'), findsNothing);
+    await teardown(tester);
+  });
+
   testWidgets('read-only task checkbox is disabled', (tester) async {
     await pump(tester, '- [ ] todo', readOnly: true);
     final checkbox = tester.widget<Checkbox>(find.byType(Checkbox));

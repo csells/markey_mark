@@ -31,6 +31,18 @@ pie title Languages
 ```
 ````
 
+**Sequence diagrams** also render natively (lifelines, solid/dashed message arrows):
+
+![Native sequence diagram](../images/mermaid-sequence.png)
+
+````markdown
+```mermaid
+sequenceDiagram
+  Alice->>Bob: Hello Bob
+  Bob-->>Alice: Hi Alice
+```
+````
+
 Diagram types not yet implemented degrade gracefully to a readable **source card** with a
 `mermaid` badge (the flowchart above). You can also plug in your own renderer via the
 `diagramRenderer` parameter of `MarkdownEditor`.

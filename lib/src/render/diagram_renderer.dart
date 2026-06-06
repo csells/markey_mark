@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../diagram/mermaid_pie.dart';
+import '../diagram/mermaid_sequence.dart';
 import '../model/node.dart';
 import '../theme/editor_style.dart';
 
@@ -29,6 +30,22 @@ class NativeDiagramRenderer implements DiagramRenderer {
         padding: const EdgeInsets.all(12),
         alignment: Alignment.centerLeft,
         child: MermaidPieView(chart: pie, textStyle: style.baseTextStyle),
+      );
+    }
+    final seq = parseSequence(node.source);
+    if (seq != null) {
+      return Container(
+        key: ValueKey('markey-sequence-${node.id}'),
+        padding: const EdgeInsets.all(12),
+        alignment: Alignment.centerLeft,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: SequenceDiagramView(
+            diagram: seq,
+            textStyle: style.baseTextStyle,
+            lineColor: style.caretColor,
+          ),
+        ),
       );
     }
     return fallback.build(context, node, style);

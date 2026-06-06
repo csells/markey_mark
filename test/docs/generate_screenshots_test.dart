@@ -140,6 +140,11 @@ A native, cross-platform **WYSIWYG Markdown editor** for Flutter.
         '```mermaid\npie title Languages\n"Dart" : 70\n"YAML" : 20\n"Other" : 10\n```');
   });
 
+  testWidgets('mermaid-sequence', (t) async {
+    await shoot(t, 'mermaid-sequence',
+        '```mermaid\nsequenceDiagram\nparticipant Alice\nparticipant Bob\nAlice->>Bob: Hello Bob\nBob-->>Alice: Hi Alice\n```');
+  });
+
   testWidgets('mermaid', (t) async {
     await shoot(t, 'mermaid',
         '```mermaid\ngraph TD;\n  A[Start] --> B{Choice};\n  B --> C[Done];\n```');
