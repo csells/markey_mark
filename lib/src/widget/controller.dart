@@ -16,6 +16,7 @@ import '../model/position.dart';
 import '../model/selection.dart';
 import '../markdown/markdown.dart';
 import '../markdown/slug.dart';
+import 'clipboard.dart';
 
 /// Which view the editor is presenting.
 enum EditorMode {
@@ -514,6 +515,113 @@ class MarkdownEditorController extends ChangeNotifier {
 
   /// Serializes the current document to semantic HTML.
   String toHtml() => Markdown.toHtml(document);
+
+  // ── Clipboard ────────────────────────────────────────────────────────────
+
+  /// The current selection as Markdown: inline Markdown for a single-block
+  /// selection, or the serialized spanned structure for a cross-block one.
+  /// Null when there is no (non-collapsed) selection.
+  String? selectionMarkdown() {
+    final sel = selection;
+    if (sel == null || sel.isCollapsed) return null;
+    if (sel.base.nodeId == sel.extent.nodeId) {
+      final node = document.nodeById(sel.base.nodeId);
+      if (node is! TextBlockNode) return null;
+      final a = (sel.base.nodePosition as TextNodePosition).offset;
+      final b = (sel.extent.nodePosition as TextNodePosition).offset;
+      return Markdown.deltaToInline(
+          node.delta.slice(math.min(a, b), math.max(a, b)));
+    }
+    final sub = _selectionSubDocument();
+    return sub == null ? null : Markdown.serialize(sub);
+  }
+
+  /// The selection's plain text (newline-joined across blocks), or null.
+  String? selectionText() {
+    final sub = _selectionSubDocument();
+    if (sub == null) return null;
+    return sub.nodes
+        .whereType<TextBlockNode>()
+        .map((n) => n.delta.toPlainText())
+        .join('\n');
+  }
+
+  /// Builds a [ClipboardPayload] for the current selection, or null when there
+  /// is nothing selected.
+  ClipboardPayload? selectionPayload() {
+    final md = selectionMarkdown();
+    if (md == null || md.isEmpty) return null;
+    final sub = _selectionSubDocument();
+    return ClipboardPayload(
+      markdown: md,
+      html: sub == null ? null : Markdown.toHtml(sub),
+      plainText: selectionText(),
+    );
+  }
+
+  /// Copies the current selection to [bridge] in all available flavors.
+  Future<void> copy({ClipboardBridge bridge = const SystemClipboardBridge()}) async {
+    final payload = selectionPayload();
+    if (payload == null) return;
+    await bridge.write(payload);
+  }
+
+  /// Copies the selection, then deletes it (one undo unit each).
+  Future<void> cut({ClipboardBridge bridge = const SystemClipboardBridge()}) async {
+    final sel = selection;
+    if (sel == null || sel.isCollapsed) return;
+    await copy(bridge: bridge);
+    _canRevertRule = false;
+    deleteBackward();
+  }
+
+  /// Reads [bridge] and pastes its best flavor (Markdown preferred) at the
+  /// caret, replacing any selection.
+  Future<void> paste({ClipboardBridge bridge = const SystemClipboardBridge()}) async {
+    final payload = await bridge.read();
+    if (payload == null) return;
+    final md = (payload.markdown != null && payload.markdown!.isNotEmpty)
+        ? payload.markdown
+        : payload.plainText;
+    if (md != null && md.isNotEmpty) pasteMarkdown(md);
+  }
+
+  /// The slice of the document covered by the current selection, as a new
+  /// [Document], or null when nothing is selected.
+  Document? _selectionSubDocument() {
+    final sel = selection;
+    if (sel == null || sel.isCollapsed) return null;
+    final iBase = document.indexOfId(sel.base.nodeId);
+    final iExt = document.indexOfId(sel.extent.nodeId);
+    if (iBase < 0 || iExt < 0) return null;
+    int offsetOf(DocumentPosition p) => p.nodePosition is TextNodePosition
+        ? (p.nodePosition as TextNodePosition).offset
+        : 0;
+    if (iBase == iExt) {
+      final node = document.nodes[iBase];
+      if (node is! TextBlockNode) return null;
+      final a = offsetOf(sel.base);
+      final b = offsetOf(sel.extent);
+      return Document(
+          [node.copyWithDelta(node.delta.slice(math.min(a, b), math.max(a, b)))]);
+    }
+    final startIdx = math.min(iBase, iExt);
+    final endIdx = math.max(iBase, iExt);
+    final startPos = iBase <= iExt ? sel.base : sel.extent;
+    final endPos = iBase <= iExt ? sel.extent : sel.base;
+    final out = <Node>[];
+    for (var idx = startIdx; idx <= endIdx; idx++) {
+      final n = document.nodes[idx];
+      if (n is TextBlockNode) {
+        final from = idx == startIdx ? offsetOf(startPos) : 0;
+        final to = idx == endIdx ? offsetOf(endPos) : n.delta.length;
+        out.add(n.copyWithDelta(n.delta.slice(from, to)));
+      } else {
+        out.add(n); // include atomic nodes whole
+      }
+    }
+    return Document(out);
+  }
 
   /// Builds a nested Markdown table of contents linking to each heading's
   /// anchor slug (matching [toHtml]'s heading ids). Returns an empty string

@@ -18,6 +18,7 @@ import '../render/diagram_renderer.dart';
 import '../render/markdown_source_highlight.dart';
 import '../theme/editor_style.dart';
 import '../ui/slash_menu.dart';
+import 'clipboard.dart';
 import 'controller.dart';
 
 /// A native, cross-platform WYSIWYG Markdown editor widget.
@@ -36,6 +37,7 @@ class MarkdownEditor extends StatefulWidget {
     this.slashItems,
     this.diagramRenderer = const NativeDiagramRenderer(),
     this.onChanged,
+    this.clipboard = const SystemClipboardBridge(),
   });
 
   final MarkdownEditorController controller;
@@ -53,6 +55,11 @@ class MarkdownEditor extends StatefulWidget {
   /// Called with the document's Markdown whenever the content changes (not on
   /// selection-only changes). Convenient for autosave.
   final ValueChanged<String>? onChanged;
+
+  /// The system-clipboard bridge used by copy/cut/paste. Defaults to the
+  /// plain-text [SystemClipboardBridge]; pass a [SuperClipboardBridge] for
+  /// rich multi-flavor OS clipboard support.
+  final ClipboardBridge clipboard;
 
   @override
   State<MarkdownEditor> createState() => _MarkdownEditorState();
@@ -495,9 +502,14 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
   /// Reads the clipboard and smart-pastes it (parsing Markdown structure).
   Future<void> _handlePaste() async {
     if (widget.readOnly) return;
-    final data = await Clipboard.getData(Clipboard.kTextPlain);
-    final text = data?.text;
-    if (text != null && text.isNotEmpty) _c.pasteMarkdown(text);
+    await _c.paste(bridge: widget.clipboard);
+  }
+
+  Future<void> _handleCopy() => _c.copy(bridge: widget.clipboard);
+
+  Future<void> _handleCut() async {
+    if (widget.readOnly) return;
+    await _c.cut(bridge: widget.clipboard);
   }
 
   // ── Build ────────────────────────────────────────────────────────────────
@@ -1089,6 +1101,8 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
       cmd(LogicalKeyboardKey.keyZ, shift: true): const _RedoIntent(),
       cmd(LogicalKeyboardKey.keyF): const _FindIntent(),
       cmd(LogicalKeyboardKey.keyV): const _PasteIntent(),
+      cmd(LogicalKeyboardKey.keyC): const _CopyIntent(),
+      cmd(LogicalKeyboardKey.keyX): const _CutIntent(),
       cmd(LogicalKeyboardKey.keyA): const _SelectAllIntent(),
       const SingleActivator(LogicalKeyboardKey.arrowLeft):
           const _MoveCaretIntent(false),
@@ -1143,6 +1157,14 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
           _c.selectAll();
           return null;
         }),
+        _CopyIntent: CallbackAction<_CopyIntent>(onInvoke: (_) {
+          _handleCopy();
+          return null;
+        }),
+        _CutIntent: CallbackAction<_CutIntent>(onInvoke: (_) {
+          _handleCut();
+          return null;
+        }),
         _MoveBlockIntent: CallbackAction<_MoveBlockIntent>(onInvoke: (i) {
           final id = _c.selection?.extent.nodeId;
           if (id != null) {
@@ -1187,6 +1209,14 @@ class _PasteIntent extends Intent {
 
 class _SelectAllIntent extends Intent {
   const _SelectAllIntent();
+}
+
+class _CopyIntent extends Intent {
+  const _CopyIntent();
+}
+
+class _CutIntent extends Intent {
+  const _CutIntent();
 }
 
 class _MoveCaretIntent extends Intent {
