@@ -112,6 +112,13 @@ these are first-class and enforced:
 
 ## 10.6 Definition of done (per feature)
 
-A feature is "done" when: it has unit/widget tests, goldens where it renders, a corpus entry
-if it touches Markdown, docs on any public API, works (or degrades gracefully) on all six
-platforms, and the example app demonstrates it.
+A feature is "done" when **all** of the following exist in the same change:
+
+- Unit tests for the logic, and **an end-to-end UI test** driving it through the real
+  `MarkdownEditor` widget (§10.0) — not just a model-level test.
+- Goldens where it renders; a round-trip corpus entry if it touches Markdown.
+- **User-facing documentation**: a `docs/` page in the right category, a **generated
+  screenshot** for anything visual, and cross-links + nav entry (see
+  [16-documentation.md](./documentation.md)). `mkdocs build --strict` must pass.
+- Docs on any public API; works (or degrades gracefully) on all six platforms; demonstrated in
+  the example app.

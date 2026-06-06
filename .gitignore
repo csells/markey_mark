@@ -126,3 +126,6 @@ app.*.symbols
 pubspec.lock
 example/.dart_tool/
 example/build/
+
+# MkDocs build output
+/site/
