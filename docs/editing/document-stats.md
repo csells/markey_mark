@@ -20,6 +20,21 @@ Text is tallied from paragraphs, headings, list items, quotes, definitions and
 table cells. Non-text blocks (horizontal rules, images, math blocks, diagrams)
 contribute to `blocks` but not to `words` or `characters`.
 
+## Document outline
+
+`outline()` returns the document's headings in order — ideal for a
+table-of-contents or navigation pane:
+
+```dart
+for (final entry in controller.outline()) {
+  print('${'  ' * (entry.level - 1)}${entry.text}');
+}
+```
+
+Each `OutlineEntry` carries the heading `level` (1–6), its plain `text` (inline
+formatting stripped) and the `nodeId` of the heading block, so a nav pane can
+scroll to or select the heading when tapped.
+
 ## Keeping a live counter
 
 Recompute on every change by listening to the controller:

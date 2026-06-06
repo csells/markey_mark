@@ -53,7 +53,7 @@ export 'src/markdown/markdown.dart' show Markdown;
 
 // Widget + controller (L7)
 export 'src/widget/controller.dart'
-    show MarkdownEditorController, EditorMode, DocumentStats;
+    show MarkdownEditorController, EditorMode, DocumentStats, OutlineEntry;
 export 'src/widget/markdown_editor.dart' show MarkdownEditor;
 export 'src/render/delta_text.dart' show deltaToTextSpan;
 export 'src/render/code_highlight.dart'

@@ -57,6 +57,38 @@ class DocumentStats {
       'DocumentStats(words: $words, characters: $characters, blocks: $blocks)';
 }
 
+/// One heading in a document [outline], suitable for a navigation pane.
+@immutable
+class OutlineEntry {
+  const OutlineEntry({
+    required this.level,
+    required this.text,
+    required this.nodeId,
+  });
+
+  /// Heading level, 1–6.
+  final int level;
+
+  /// The heading's plain text (inline formatting markers stripped).
+  final String text;
+
+  /// The id of the heading block, for scrolling/selecting it.
+  final String nodeId;
+
+  @override
+  bool operator ==(Object other) =>
+      other is OutlineEntry &&
+      other.level == level &&
+      other.text == text &&
+      other.nodeId == nodeId;
+
+  @override
+  int get hashCode => Object.hash(level, text, nodeId);
+
+  @override
+  String toString() => 'OutlineEntry(h$level, "$text", $nodeId)';
+}
+
 /// The public controller for [MarkdownEditor].
 ///
 /// Owns the editing [Editor] and exposes Markdown as the source of truth, the
@@ -437,6 +469,24 @@ class MarkdownEditorController extends ChangeNotifier {
       characters: characters,
       blocks: document.nodes.length,
     );
+  }
+
+  /// Returns the document's headings in order as an [OutlineEntry] list,
+  /// suitable for a table-of-contents / navigation pane.
+  List<OutlineEntry> outline() {
+    final entries = <OutlineEntry>[];
+    for (final node in document.nodes) {
+      if (node is TextBlockNode &&
+          node.type == BlockType.heading &&
+          node.level != null) {
+        entries.add(OutlineEntry(
+          level: node.level!,
+          text: node.delta.toPlainText(),
+          nodeId: node.id,
+        ));
+      }
+    }
+    return entries;
   }
 
   void undo() {
