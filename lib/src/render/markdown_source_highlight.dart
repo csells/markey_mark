@@ -6,18 +6,22 @@ class MarkdownSourceTheme {
     this.markerColor = const Color(0xFF0033B3),
     this.codeColor = const Color(0xFF067D17),
     this.linkColor = const Color(0xFF1750EB),
+    this.highlightColor = const Color(0xFFFFF59D),
   });
   final Color markerColor;
   final Color codeColor;
   final Color linkColor;
+  final Color highlightColor;
 }
 
 final RegExp _md = RegExp(
   r'(?<h>^#{1,6} )'
+  r'|(?<callout>^> \[![A-Za-z]+\])'
   r'|(?<li>^\s*(?:[-*+]|\d+[.)]) )'
   r'|(?<q>^> )'
   r'|(?<fence>^```[^\n]*)'
   r'|(?<bold>\*\*[^*\n]+\*\*|__[^_\n]+__)'
+  r'|(?<hl>==[^=\n]+==)'
   r'|(?<code>`[^`\n]+`)'
   r'|(?<italic>\*[^*\n]+\*|_[^_\n]+_)'
   r'|(?<link>\[[^\]\n]*\]\([^)\n]*\))',
@@ -52,10 +56,13 @@ List<TextSpan> markdownSourceSpans(
     TextStyle style;
     if (m.namedGroup('h') != null ||
         m.namedGroup('li') != null ||
-        m.namedGroup('q') != null) {
+        m.namedGroup('q') != null ||
+        m.namedGroup('callout') != null) {
       style = base.copyWith(color: theme.markerColor, fontWeight: FontWeight.bold);
     } else if (m.namedGroup('fence') != null || m.namedGroup('code') != null) {
       style = base.copyWith(color: theme.codeColor);
+    } else if (m.namedGroup('hl') != null) {
+      style = base.copyWith(backgroundColor: theme.highlightColor);
     } else if (m.namedGroup('bold') != null) {
       style = base.copyWith(fontWeight: FontWeight.bold);
     } else if (m.namedGroup('italic') != null) {

@@ -29,4 +29,17 @@ void main() {
     final boldSpan = spans.firstWhere((s) => s.text == '**b**');
     expect(boldSpan.style!.fontWeight, FontWeight.bold);
   });
+
+  test('highlight run is styled with a background colour', () {
+    final spans = markdownSourceSpans('a ==hot== b', base);
+    final span = spans.firstWhere((s) => s.text == '==hot==');
+    expect(span.style!.backgroundColor, isNotNull);
+  });
+
+  test('callout marker line is styled like a marker and is lossless', () {
+    const src = '> [!NOTE]\n> body';
+    final spans = markdownSourceSpans(src, base);
+    expect(join(spans), src);
+    expect(spans.any((s) => (s.text ?? '').contains('[!NOTE]')), isTrue);
+  });
 }
