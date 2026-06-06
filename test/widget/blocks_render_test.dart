@@ -115,6 +115,13 @@ void main() {
     await teardown(tester);
   });
 
+  testWidgets('inline math renders natively when not being edited',
+      (tester) async {
+    await pump(tester, r'energy is $E = mc^2$ exactly');
+    expect(find.byType(Math), findsOneWidget);
+    await teardown(tester);
+  });
+
   testWidgets('GFM table renders a Table widget with all cells', (tester) async {
     final c = await pump(
         tester, '| Name | Age |\n| --- | --- |\n| Ann | 30 |\n| Bob | 25 |');

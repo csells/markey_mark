@@ -125,6 +125,11 @@ A native, cross-platform **WYSIWYG Markdown editor** for Flutter.
         "```dart\nvoid main() {\n  print('hello'); // a comment\n  var x = 42;\n}\n```");
   });
 
+  testWidgets('math-inline', (t) async {
+    await shoot(t, 'math-inline',
+        r'The mass–energy equivalence is $E = mc^2$, and a circle is $A = \pi r^2$.');
+  });
+
   testWidgets('table', (t) async {
     await shoot(t, 'table',
         '| Feature | Native? |\n| :-- | :-: |\n| Tables | yes |\n| Math | yes |\n| Code | yes |');
@@ -241,6 +246,9 @@ Future<void> _loadFonts() async {
     '$fontDir/liberation/LiberationMono-Regular.ttf',
     '$fontDir/liberation/LiberationMono-Bold.ttf',
   ]);
+  // KaTeX glyph fonts (bundled with flutter_math_fork) so math renders.
+  await _loadKaTeXFonts();
+
   // Material icon glyphs for the toolbar (resolve the Flutter SDK root).
   final flutterRoot = _flutterRoot();
   await load('MaterialIcons', [
@@ -248,6 +256,45 @@ Future<void> _loadFonts() async {
       '$flutterRoot/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf',
     '/opt/flutter/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf',
   ]);
+}
+
+/// Loads the KaTeX glyph fonts bundled with `flutter_math_fork`, grouped by
+/// family (the filename prefix before `-`), so math renders in screenshots.
+Future<void> _loadKaTeXFonts() async {
+  final home = Platform.environment['PUB_CACHE'] ??
+      '${Platform.environment['HOME']}/.pub-cache';
+  final base = Directory('$home/hosted/pub.dev');
+  if (!base.existsSync()) return;
+  final pkg = base
+      .listSync()
+      .whereType<Directory>()
+      .where((d) => d.path.split('/').last.startsWith('flutter_math_fork-'))
+      .toList();
+  if (pkg.isEmpty) return;
+  final fontsDir = Directory('${pkg.first.path}/lib/katex_fonts/fonts');
+  if (!fontsDir.existsSync()) return;
+
+  final byFamily = <String, List<String>>{};
+  for (final f in fontsDir.listSync().whereType<File>()) {
+    if (!f.path.endsWith('.ttf')) continue;
+    final name = f.path.split('/').last; // e.g. KaTeX_Main-Bold.ttf
+    final family = name.split('-').first; // KaTeX_Main
+    byFamily.putIfAbsent(family, () => []).add(f.path);
+  }
+  for (final entry in byFamily.entries) {
+    // flutter_math_fork references its fonts with a package prefix.
+    for (final family in [
+      'packages/flutter_math_fork/${entry.key}',
+      entry.key,
+    ]) {
+      final loader = FontLoader(family);
+      for (final path in entry.value) {
+        loader.addFont(
+            Future.value(ByteData.view(File(path).readAsBytesSync().buffer)));
+      }
+      await loader.load();
+    }
+  }
 }
 
 /// Derives the Flutter SDK root from the running Dart executable

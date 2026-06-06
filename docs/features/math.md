@@ -1,19 +1,29 @@
 # Math
 
-KaTeX-class **block math**, rendered natively (no JavaScript) via `flutter_math_fork`.
+KaTeX-class math, rendered **natively** (no JavaScript) via `flutter_math_fork` — both block
+and inline.
+
+## Block math
 
 ![Block math](../images/math.png)
 
-## How to create one
-
-- **Slash menu / source:** wrap LaTeX in `$$` fences on their own lines.
-
-## Markdown
+Wrap LaTeX in `$$` fences on their own lines:
 
 ```markdown
 $$
 e^{i\pi} + 1 = 0
 $$
+```
+
+## Inline math
+
+![Inline math](../images/math-inline.png)
+
+Wrap LaTeX in single `$…$` within a line. It renders natively inline when you're not editing
+the line; click into the line to edit the LaTeX source.
+
+```markdown
+The mass–energy equivalence is $E = mc^2$.
 ```
 
 !!! note

@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 
 import '../editing/search.dart';
+import '../model/attributes.dart';
 import '../model/delta.dart';
 import '../model/node.dart';
 import '../model/position.dart';
@@ -605,10 +606,55 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
     );
   }
 
+  bool _hasInlineMath(TextBlockNode node) =>
+      node.delta.runs.any((r) => r.attributes[InlineAttr.math] == true);
+
+  bool _isActiveBlock(TextBlockNode node) =>
+      _focusNode.hasFocus && _c.selection?.extent.nodeId == node.id;
+
+  /// Read-mode rendering of a block that contains inline math: renders the math
+  /// natively (KaTeX via `flutter_math_fork`) inline with the text. Tapping it
+  /// focuses the block, which switches to the editable source view.
+  Widget _renderedContent(TextBlockNode node, EditorStyle style) {
+    final base = baseStyleFor(node, style);
+    final spans = <InlineSpan>[
+      for (final run in node.delta.runs)
+        if (run.attributes[InlineAttr.math] == true)
+          WidgetSpan(
+            alignment: PlaceholderAlignment.middle,
+            child: Math.tex(
+              run.text,
+              textStyle: base,
+              mathStyle: MathStyle.text,
+              onErrorFallback: (e) => Text('\$${run.text}\$', style: base),
+            ),
+          )
+        else
+          TextSpan(
+            text: run.text,
+            style: styleForAttributes(run.attributes, base, style),
+          ),
+    ];
+    return GestureDetector(
+      key: ValueKey('markey-block-${node.id}'),
+      behavior: HitTestBehavior.opaque,
+      onTap: widget.readOnly
+          ? null
+          : () {
+              _focusNode.requestFocus();
+              _c.setSelection(DocumentSelection.collapsed(
+                  DocumentPosition.text(node.id, node.delta.length)));
+            },
+      child: Text.rich(TextSpan(style: base, children: spans)),
+    );
+  }
+
   /// Wraps the editable text content with any block decoration (list marker,
   /// task checkbox, quote bar).
   Widget _buildBlock(TextBlockNode node, EditorStyle style) {
-    final content = _textContent(node, style);
+    final content = (_hasInlineMath(node) && !_isActiveBlock(node))
+        ? _renderedContent(node, style)
+        : _textContent(node, style);
     switch (node.type) {
       case BlockType.bulletedListItem:
         return _gutterRow(_marker('•', style), content);

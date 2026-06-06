@@ -17,6 +17,7 @@ class MarkdownDecoder {
   md.Document _newMdDocument() => md.Document(
         extensionSet: md.ExtensionSet.gitHubFlavored,
         blockSyntaxes: [MathBlockSyntax()],
+        inlineSyntaxes: [MathInlineSyntax()],
         encodeHtml: false,
       );
 
@@ -343,6 +344,10 @@ class _InlineMapper implements md.NodeVisitor {
       case 'a':
         final href = element.attributes['href'] ?? '';
         _stack.add({InlineAttr.link: href});
+      case 'math':
+        _runs.add(TextRun(element.textContent, {InlineAttr.math: true}));
+        _stack.add(const {});
+        return false;
       case 'sup':
         if ((element.attributes['class'] ?? '').contains('footnote-ref')) {
           final label = element.textContent;
@@ -388,5 +393,17 @@ class MathBlockSyntax extends md.BlockSyntax {
       parser.advance();
     }
     return md.Element.text('math_block', lines.join('\n'));
+  }
+}
+
+/// A custom inline syntax for `$...$` math, producing a `math` element whose
+/// text is the LaTeX source. (Block `$$ … $$` is handled by [MathBlockSyntax].)
+class MathInlineSyntax extends md.InlineSyntax {
+  MathInlineSyntax() : super(r'\$([^$\n]+)\$');
+
+  @override
+  bool onMatch(md.InlineParser parser, Match match) {
+    parser.addNode(md.Element.text('math', match[1]!));
+    return true;
   }
 }

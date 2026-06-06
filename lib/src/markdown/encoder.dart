@@ -140,6 +140,13 @@ class MarkdownEncoder {
         continue;
       }
 
+      // Inline math is a self-contained `$…$` token (run text is the LaTeX).
+      if (attrs[InlineAttr.math] == true) {
+        closeFrom(0);
+        buf.write('\$${run.text}\$');
+        continue;
+      }
+
       // Code spans are literal and can't carry wrapping marks meaningfully;
       // close everything around them.
       final want = isCode
