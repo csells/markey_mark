@@ -262,6 +262,16 @@ void main() {
     await teardown(tester);
   });
 
+  testWidgets('mermaid journey diagram renders natively', (tester) async {
+    final c = await pump(tester,
+        '```mermaid\njourney\ntitle My day\nsection Work\n  Tea: 5: Me\n  Code: 1: Me, Cat\n```');
+    final id = c.document.nodes.first.id;
+    expect(find.byKey(ValueKey('markey-journey-$id')), findsOneWidget);
+    expect(find.byType(MermaidJourneyView), findsOneWidget);
+    expect(find.text('mermaid'), findsNothing);
+    await teardown(tester);
+  });
+
   testWidgets('mermaid sequence diagram renders natively', (tester) async {
     final c = await pump(tester,
         '```mermaid\nsequenceDiagram\nAlice->>Bob: Hi\nBob-->>Alice: Hey\n```');

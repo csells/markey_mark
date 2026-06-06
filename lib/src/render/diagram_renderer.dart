@@ -4,6 +4,7 @@ import '../diagram/mermaid_class.dart';
 import '../diagram/mermaid_er.dart';
 import '../diagram/mermaid_flowchart.dart';
 import '../diagram/mermaid_gantt.dart';
+import '../diagram/mermaid_journey.dart';
 import '../diagram/mermaid_pie.dart';
 import '../diagram/mermaid_sequence.dart';
 import '../diagram/mermaid_state.dart';
@@ -49,6 +50,22 @@ class NativeDiagramRenderer implements DiagramRenderer {
             gantt: gantt,
             textStyle: style.baseTextStyle,
             barColor: style.caretColor.withValues(alpha: 0.7),
+            lineColor: style.caretColor,
+          ),
+        ),
+      );
+    }
+    final journey = parseJourney(node.source);
+    if (journey != null) {
+      return Container(
+        key: ValueKey('markey-journey-${node.id}'),
+        padding: const EdgeInsets.all(12),
+        alignment: Alignment.centerLeft,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: MermaidJourneyView(
+            journey: journey,
+            textStyle: style.baseTextStyle,
             lineColor: style.caretColor,
           ),
         ),

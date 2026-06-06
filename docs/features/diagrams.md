@@ -96,9 +96,27 @@ Code : 2024-01-11, 20d
 ```
 ````
 
+## User journeys
+
+User-journey diagrams render natively as a satisfaction line (scores 1–5) with
+one point per task, coloured by the first actor and grouped into sections, plus
+an actor legend:
+
+````markdown
+```mermaid
+journey
+title My working day
+section Go to work
+  Make tea: 5: Me
+  Do work: 1: Me, Cat
+section Go home
+  Sit down: 3: Me
+```
+````
+
 ## Other types
 
-Diagram types the native engine doesn't yet support (e.g. journey, mindmap, timeline) degrade
+Diagram types the native engine doesn't yet support (e.g. mindmap, timeline) degrade
 gracefully to a readable **source card** with a `mermaid` badge:
 
 ![Mermaid source-card fallback](../images/mermaid.png)
