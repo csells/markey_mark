@@ -1,0 +1,40 @@
+/// markey_mark — a from-scratch, fully native, cross-platform WYSIWYG Markdown
+/// editor for Flutter. Google-Docs feel, Markdown as the source of truth,
+/// switchable WYSIWYG/source modes. No WebView, no JavaScript — 100% native.
+///
+/// See `specs/design/` in the repository for the full design specification.
+library;
+
+// Model (L1)
+export 'src/model/attributes.dart' show Attributes, InlineAttr;
+export 'src/model/delta.dart' show Delta, TextRun;
+export 'src/model/node.dart' show Node, TextBlockNode, BlockType, NodeIds;
+export 'src/model/document.dart' show Document;
+export 'src/model/position.dart'
+    show DocumentPosition, NodePosition, TextNodePosition, AtomicNodePosition;
+export 'src/model/selection.dart' show DocumentSelection;
+
+// Editing (L4)
+export 'src/editing/operations.dart'
+    show Operation, InsertNodeOp, DeleteNodeOp, ReplaceNodeOp;
+export 'src/editing/transaction.dart' show EditTransaction;
+export 'src/editing/editor.dart' show Editor;
+export 'src/editing/commands.dart' show EditCommands;
+export 'src/editing/input_rules.dart'
+    show
+        InputRule,
+        HeadingInputRule,
+        WrapInputRule,
+        defaultInputRules,
+        applyInputRules;
+
+// Markdown pipeline (L0)
+export 'src/markdown/decoder.dart' show MarkdownDecoder;
+export 'src/markdown/encoder.dart' show MarkdownEncoder;
+export 'src/markdown/markdown.dart' show Markdown;
+
+// Widget + controller (L7)
+export 'src/widget/controller.dart' show MarkdownEditorController, EditorMode;
+export 'src/widget/markdown_editor.dart' show MarkdownEditor;
+export 'src/render/delta_text.dart' show deltaToTextSpan;
+export 'src/theme/editor_style.dart' show EditorStyle;

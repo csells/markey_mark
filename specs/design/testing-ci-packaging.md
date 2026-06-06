@@ -3,6 +3,25 @@
 Correctness of caret, selection, undo, and Markdown round-trip is the difference between a
 toy and a real editor. Testing is therefore first-class and tiered.
 
+## 10.0 Coverage mandate — 100%
+
+**Hard gate.** Every piece of specced functionality that is implemented must be covered by
+tests at all three levels — **unit** (pure-Dart logic), **widget/UI** (the rendered widget and
+its interactions), and **integration** (end-to-end flows through the public API). We target
+**100% line + branch coverage** of `lib/` and treat coverage regressions as build failures.
+
+- Coverage is measured with `flutter test --coverage` (lcov) and enforced in CI; the
+  threshold starts at 100% for shipped code and may only be lowered for an explicitly
+  annotated, justified reason (e.g., a platform-only branch unreachable in the test host),
+  documented inline with `// coverage:ignore-...` and a comment.
+- "Implemented but untested" is not an allowed state. A feature is not "done" (§10.6) until
+  its unit + widget + integration tests exist and pass.
+- Each public API method, each `EditRequest`/command, each input rule, each Markdown
+  construct (via the round-trip corpus), and each interactive behavior (typing, selection,
+  toggle, undo/redo, source switch) has explicit tests.
+- New behavior lands **with** its tests in the same change; new bugs land **with** a failing
+  regression test first.
+
 ## 10.1 Test tiers
 
 1. **Unit (pure Dart, cheap, run on Linux CI):**

@@ -44,6 +44,7 @@ build (parser → layout → `CustomPainter`), not a JS bridge.
 | 10 | [testing-ci-packaging.md](./testing-ci-packaging.md) | Unit/widget/golden tests, round-trip corpus, CI matrix, pub.dev packaging |
 | 11 | [roadmap.md](./roadmap.md) | Milestones P0→P3, the vertical slice definition, sequencing |
 | 12 | [bootstrap-reference.md](./bootstrap-reference.md) | Distilled, code-level implementation playbook mined from `super_editor` & `appflowy_editor` |
+| 13 | [data-structures-and-algorithms.md](./data-structures-and-algorithms.md) | Modern text-editing data structures & algorithms (per-block storage, block index, incremental parse, layout caching, grapheme cursor, CRDT door) |
 
 Supporting research lives in [`../research/`](../research/).
 
