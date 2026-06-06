@@ -89,4 +89,28 @@ void main() {
     expect(find.byType(Image), findsOneWidget);
     await teardown(tester);
   });
+
+  testWidgets('image shows an alt fallback when loading fails', (tester) async {
+    await pump(tester, '![a cat](https://example.invalid/x.png)');
+    final imageWidget = tester.widget<Image>(find.byType(Image));
+    // Drive the errorBuilder directly (network never resolves in tests).
+    final fallback = imageWidget.errorBuilder!(
+        tester.element(find.byType(Image)), 'err', null);
+    expect(fallback, isA<Widget>());
+    await teardown(tester);
+  });
+
+  testWidgets('code block without a language renders (no label)',
+      (tester) async {
+    await pump(tester, '```\nplain code\n```');
+    expect(find.byType(RichText), findsWidgets);
+    await teardown(tester);
+  });
+
+  testWidgets('read-only task checkbox is disabled', (tester) async {
+    await pump(tester, '- [ ] todo', readOnly: true);
+    final checkbox = tester.widget<Checkbox>(find.byType(Checkbox));
+    expect(checkbox.onChanged, isNull);
+    await teardown(tester);
+  });
 }

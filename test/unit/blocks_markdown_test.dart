@@ -106,6 +106,45 @@ void main() {
     });
   });
 
+  group('Decoder structural branches', () {
+    test('loose list items (with paragraph wrappers) decode correctly', () {
+      final d = Markdown.parse('- one\n\n- two');
+      expect(d.length, 2);
+      expect(tb(d, 0).type, BlockType.bulletedListItem);
+      expect(tb(d, 0).delta.toPlainText(), 'one');
+    });
+
+    test('multi-paragraph blockquote becomes multiple quote blocks', () {
+      final d = Markdown.parse('> first\n>\n> second');
+      final quotes = d.nodes.whereType<TextBlockNode>()
+          .where((n) => n.type == BlockType.quote)
+          .toList();
+      expect(quotes.length, greaterThanOrEqualTo(2));
+    });
+
+    test('nested blockquote is flattened to quote blocks', () {
+      final d = Markdown.parse('> outer\n>\n> > inner');
+      expect(
+        d.nodes.whereType<TextBlockNode>().every((n) =>
+            n.type == BlockType.quote || n.type == BlockType.paragraph),
+        isTrue,
+      );
+    });
+
+    test('code block without a language', () {
+      final d = Markdown.parse('```\nplain code\n```');
+      final node = d.nodes.first as CodeBlockNode;
+      expect(node.language, isNull);
+      expect(node.code, 'plain code');
+    });
+
+    test('ordered list respecting a start number', () {
+      final d = Markdown.parse('3. three\n4. four');
+      expect(tb(d, 0).number, 3);
+      expect(tb(d, 1).number, 4);
+    });
+  });
+
   group('Mixed document round-trip', () {
     test('idempotent + stable across a rich document', () {
       const md = '# Title\n\n'
