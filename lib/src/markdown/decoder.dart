@@ -63,6 +63,11 @@ class MarkdownDecoder {
         return [MathBlockNode(tex: node.textContent)];
       case 'table':
         return [_table(node)];
+      case 'section':
+        if ((node.attributes['class'] ?? '').contains('footnotes')) {
+          return _footnoteDefs(node);
+        }
+        return [TextBlockNode.paragraph(delta: _mapInline(node.children))];
       case 'pre':
         return [_codeOrMermaid(node)];
       case 'code':
@@ -177,6 +182,44 @@ class MarkdownDecoder {
         alt: (img.attributes['alt'] ?? '').isEmpty ? null : img.attributes['alt'],
         title: img.attributes['title'],
       );
+
+  List<Node> _footnoteDefs(md.Element section) {
+    final out = <Node>[];
+    void visitList(md.Element ol) {
+      for (final li in ol.children ?? const <md.Node>[]) {
+        if (li is! md.Element || li.tag != 'li') continue;
+        final label = li.footnoteLabel ??
+            (li.attributes['id'] ?? '').replaceFirst('fn-', '');
+        // Inline content of the definition, minus the back-reference link.
+        final inline = <md.Node>[];
+        for (final child in li.children ?? const <md.Node>[]) {
+          if (child is md.Element && child.tag == 'p') {
+            inline.addAll(child.children ?? const <md.Node>[]);
+          } else {
+            inline.add(child);
+          }
+        }
+        inline.removeWhere((n) =>
+            n is md.Element &&
+            n.tag == 'a' &&
+            (n.attributes['class'] ?? '').contains('footnote-backref'));
+        final delta = _trimTrailingSpace(_mapInline(inline));
+        out.add(TextBlockNode.footnoteDef(label: label, delta: delta));
+      }
+    }
+
+    for (final child in section.children ?? const <md.Node>[]) {
+      if (child is md.Element && child.tag == 'ol') visitList(child);
+    }
+    return out;
+  }
+
+  Delta _trimTrailingSpace(Delta delta) {
+    final plain = delta.toPlainText();
+    final trimmed = plain.replaceFirst(RegExp(r'\s+$'), '');
+    if (trimmed.length == plain.length) return delta;
+    return delta.slice(0, trimmed.length);
+  }
 
   TableNode _table(md.Element table) {
     final rows = <List<Delta>>[];
@@ -300,6 +343,14 @@ class _InlineMapper implements md.NodeVisitor {
       case 'a':
         final href = element.attributes['href'] ?? '';
         _stack.add({InlineAttr.link: href});
+      case 'sup':
+        if ((element.attributes['class'] ?? '').contains('footnote-ref')) {
+          final label = element.textContent;
+          _runs.add(TextRun(label, {InlineAttr.footnote: label}));
+          _stack.add(const {});
+          return false; // don't descend into the ref's anchor
+        }
+        _stack.add(const {});
       default:
         _stack.add(const {});
     }

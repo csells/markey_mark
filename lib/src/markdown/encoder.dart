@@ -88,6 +88,8 @@ class MarkdownEncoder {
           return '- [${(node.checked ?? false) ? 'x' : ' '}] $inline';
         case BlockType.quote:
           return '> $inline';
+        case BlockType.footnoteDef:
+          return '[^${node.footnoteLabel ?? ''}]: $inline';
         default:
           return inline;
       }
@@ -128,6 +130,15 @@ class MarkdownEncoder {
       final attrs = run.attributes;
       final isCode = attrs[InlineAttr.code] == true;
       final link = attrs[InlineAttr.link] as String?;
+      final footnote = attrs[InlineAttr.footnote] as String?;
+
+      // A footnote reference is a self-contained token (`[^label]`); close any
+      // open marks around it.
+      if (footnote != null) {
+        closeFrom(0);
+        buf.write('[^$footnote]');
+        continue;
+      }
 
       // Code spans are literal and can't carry wrapping marks meaningfully;
       // close everything around them.

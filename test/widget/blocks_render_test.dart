@@ -131,6 +131,13 @@ void main() {
     await teardown(tester);
   });
 
+  testWidgets('footnote definition renders with its label marker',
+      (tester) async {
+    await pump(tester, 'A note[^1].\n\n[^1]: The note text.');
+    expect(find.text('[1]'), findsOneWidget);
+    await teardown(tester);
+  });
+
   testWidgets('mermaid block renders the native diagram card', (tester) async {
     final c = await pump(tester, '```mermaid\ngraph TD;\nA-->B;\n```');
     final id = c.document.nodes.first.id;

@@ -130,6 +130,11 @@ A native, cross-platform **WYSIWYG Markdown editor** for Flutter.
         '| Feature | Native? |\n| :-- | :-: |\n| Tables | yes |\n| Math | yes |\n| Code | yes |');
   });
 
+  testWidgets('footnotes', (t) async {
+    await shoot(t, 'footnotes',
+        'Here is a statement with a note[^1].\n\n[^1]: The footnote text.');
+  });
+
   testWidgets('mermaid', (t) async {
     await shoot(t, 'mermaid',
         '```mermaid\ngraph TD;\n  A[Start] --> B{Choice};\n  B --> C[Done];\n```');

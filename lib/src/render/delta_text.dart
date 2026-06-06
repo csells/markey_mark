@@ -40,6 +40,13 @@ TextStyle styleForAttributes(Attributes attrs, TextStyle base, EditorStyle es) {
       decoration: TextDecoration.underline,
     );
   }
+  if (attrs.containsKey(InlineAttr.footnote)) {
+    s = s.copyWith(
+      color: es.linkColor,
+      fontSize: (base.fontSize ?? 16) * 0.75,
+      fontFeatures: const [FontFeature.superscripts()],
+    );
+  }
   return s;
 }
 

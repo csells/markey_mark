@@ -38,6 +38,7 @@ abstract final class BlockType {
   static const String mathBlock = 'math_block';
   static const String table = 'table';
   static const String mermaid = 'mermaid';
+  static const String footnoteDef = 'footnote_def';
 }
 
 /// Column alignment for a GFM table.
@@ -122,6 +123,18 @@ final class TextBlockNode extends Node {
         type: BlockType.quote,
         delta: delta ?? Delta.empty(),
       );
+
+  factory TextBlockNode.footnoteDef(
+          {String? id, required String label, Delta? delta}) =>
+      TextBlockNode(
+        id: id,
+        type: BlockType.footnoteDef,
+        delta: delta ?? Delta.empty(),
+        attributes: {'label': label},
+      );
+
+  /// Footnote label (for [BlockType.footnoteDef]); null otherwise.
+  String? get footnoteLabel => attributes['label'] as String?;
 
   /// Ordered-list number (for [BlockType.numberedListItem]); null otherwise.
   int? get number => attributes['number'] as int?;

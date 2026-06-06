@@ -512,6 +512,11 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
           ),
           content,
         );
+      case BlockType.footnoteDef:
+        return _gutterRow(
+          _marker('[${node.footnoteLabel ?? ''}]', style),
+          content,
+        );
       case BlockType.quote:
         return Container(
           key: ValueKey('markey-quote-${node.id}'),

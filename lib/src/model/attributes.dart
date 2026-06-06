@@ -22,6 +22,9 @@ abstract final class InlineAttr {
 
   /// Inline math; value is the TeX source string.
   static const String math = 'math';
+
+  /// Inline footnote reference; value is the footnote label string.
+  static const String footnote = 'footnote';
 }
 
 /// Deep-equality for two attribute maps (order-independent).
