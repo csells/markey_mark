@@ -11,6 +11,7 @@ import '../model/position.dart';
 import '../model/selection.dart';
 import '../render/code_highlight.dart';
 import '../render/delta_text.dart';
+import '../render/markdown_source_highlight.dart';
 import '../theme/editor_style.dart';
 import 'controller.dart';
 
@@ -41,7 +42,7 @@ class MarkdownEditor extends StatefulWidget {
 
 class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
   late FocusNode _focusNode;
-  final TextEditingController _sourceController = TextEditingController();
+  final _MarkdownSourceController _sourceController = _MarkdownSourceController();
   final ValueNotifier<bool> _caretBlink = ValueNotifier<bool>(false);
   Timer? _blinkTimer;
 
@@ -604,6 +605,22 @@ class _RedoIntent extends Intent {
 class _MoveCaretIntent extends Intent {
   const _MoveCaretIntent(this.forward);
   final bool forward;
+}
+
+// ── Source-mode highlighting controller ────────────────────────────────────
+
+/// A [TextEditingController] that renders the raw Markdown source with native
+/// syntax highlighting (no WebView/JS).
+class _MarkdownSourceController extends TextEditingController {
+  @override
+  TextSpan buildTextSpan({
+    required BuildContext context,
+    TextStyle? style,
+    required bool withComposing,
+  }) {
+    final base = style ?? const TextStyle();
+    return TextSpan(style: base, children: markdownSourceSpans(text, base));
+  }
 }
 
 // ── Painter ────────────────────────────────────────────────────────────────

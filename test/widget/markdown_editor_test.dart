@@ -88,6 +88,23 @@ void main() {
       await teardown(tester);
     });
 
+    testWidgets('source field highlights Markdown (multi-span)', (tester) async {
+      final c = MarkdownEditorController(markdown: '# Title with **bold**');
+      addTearDown(c.dispose);
+      await pumpEditor(tester, c);
+      await tester.tap(find.byKey(const Key('markey_toggle_mode')));
+      await tester.pump();
+
+      final editable = tester.widget<EditableText>(find.byType(EditableText));
+      final span = editable.controller.buildTextSpan(
+        context: tester.element(find.byType(EditableText)),
+        style: const TextStyle(),
+        withComposing: false,
+      );
+      expect(span.children!.length, greaterThan(1));
+      await teardown(tester);
+    });
+
     testWidgets('editing source then toggling back updates the document',
         (tester) async {
       final c = MarkdownEditorController(markdown: 'plain');

@@ -46,4 +46,6 @@ export 'src/widget/markdown_editor.dart' show MarkdownEditor;
 export 'src/render/delta_text.dart' show deltaToTextSpan;
 export 'src/render/code_highlight.dart'
     show CodeHighlighter, DefaultCodeHighlighter;
+export 'src/render/markdown_source_highlight.dart'
+    show markdownSourceSpans, MarkdownSourceTheme;
 export 'src/theme/editor_style.dart' show EditorStyle;
