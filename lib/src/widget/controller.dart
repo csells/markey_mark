@@ -24,6 +24,39 @@ enum EditorMode {
   source,
 }
 
+/// A snapshot of document size metrics, suitable for a status bar.
+@immutable
+class DocumentStats {
+  const DocumentStats({
+    required this.words,
+    required this.characters,
+    required this.blocks,
+  });
+
+  /// Number of whitespace-delimited words across all text content.
+  final int words;
+
+  /// Number of characters (grapheme clusters) across all text content.
+  final int characters;
+
+  /// Number of top-level blocks in the document (text and non-text alike).
+  final int blocks;
+
+  @override
+  bool operator ==(Object other) =>
+      other is DocumentStats &&
+      other.words == words &&
+      other.characters == characters &&
+      other.blocks == blocks;
+
+  @override
+  int get hashCode => Object.hash(words, characters, blocks);
+
+  @override
+  String toString() =>
+      'DocumentStats(words: $words, characters: $characters, blocks: $blocks)';
+}
+
 /// The public controller for [MarkdownEditor].
 ///
 /// Owns the editing [Editor] and exposes Markdown as the source of truth, the
@@ -372,6 +405,38 @@ class MarkdownEditorController extends ChangeNotifier {
       selectionAfter: selection,
       tag: 'replace-all',
     ));
+  }
+
+  /// Computes word, character and block counts for the current document.
+  ///
+  /// Words and characters are tallied across all text-bearing blocks
+  /// (paragraphs, headings, list items, quotes, definitions, …) and table
+  /// cells. Characters are counted as grapheme clusters. Blocks counts every
+  /// top-level node, including non-text blocks like rules, images and diagrams.
+  DocumentStats documentStats() {
+    var words = 0;
+    var characters = 0;
+    void tally(String text) {
+      characters += text.characters.length;
+      words += text.split(RegExp(r'\s+')).where((w) => w.isNotEmpty).length;
+    }
+
+    for (final node in document.nodes) {
+      if (node is TextBlockNode) {
+        tally(node.delta.toPlainText());
+      } else if (node is TableNode) {
+        for (var r = 0; r < node.rowCount; r++) {
+          for (var c = 0; c < node.columnCount; c++) {
+            tally(node.cellText(r, c));
+          }
+        }
+      }
+    }
+    return DocumentStats(
+      words: words,
+      characters: characters,
+      blocks: document.nodes.length,
+    );
   }
 
   void undo() {
