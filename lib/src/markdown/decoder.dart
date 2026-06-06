@@ -16,6 +16,7 @@ class MarkdownDecoder {
 
   md.Document _newMdDocument() => md.Document(
         extensionSet: md.ExtensionSet.gitHubFlavored,
+        blockSyntaxes: [MathBlockSyntax()],
         encodeHtml: false,
       );
 
@@ -58,6 +59,8 @@ class MarkdownDecoder {
         return _listItems(node, ordered: true);
       case 'blockquote':
         return _quote(node);
+      case 'math_block':
+        return [MathBlockNode(tex: node.textContent)];
       case 'pre':
         return [_codeBlock(node)];
       case 'code':
@@ -256,5 +259,27 @@ class _InlineMapper implements md.NodeVisitor {
   void visitElementAfter(md.Element element) {
     if (element.tag == 'code') return; // already popped
     if (_stack.length > 1) _stack.removeLast();
+  }
+}
+
+/// A custom block syntax for display math fences: `$$` … `$$` on their own
+/// lines, producing a `math_block` element whose text is the LaTeX source.
+class MathBlockSyntax extends md.BlockSyntax {
+  @override
+  RegExp get pattern => RegExp(r'^\s*\$\$\s*$');
+
+  @override
+  md.Node? parse(md.BlockParser parser) {
+    final lines = <String>[];
+    parser.advance(); // consume the opening `$$`
+    while (!parser.isDone) {
+      if (pattern.hasMatch(parser.current.content)) {
+        parser.advance(); // consume the closing `$$`
+        break;
+      }
+      lines.add(parser.current.content);
+      parser.advance();
+    }
+    return md.Element.text('math_block', lines.join('\n'));
   }
 }

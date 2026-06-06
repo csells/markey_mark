@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:markey_mark/markey_mark.dart';
 
@@ -104,6 +105,13 @@ void main() {
       (tester) async {
     await pump(tester, '```\nplain code\n```');
     expect(find.byType(RichText), findsWidgets);
+    await teardown(tester);
+  });
+
+  testWidgets('block math renders natively via flutter_math_fork',
+      (tester) async {
+    await pump(tester, r'$$' '\n' r'x^2 + y^2' '\n' r'$$');
+    expect(find.byType(Math), findsOneWidget);
     await teardown(tester);
   });
 

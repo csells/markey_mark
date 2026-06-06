@@ -35,6 +35,7 @@ abstract final class BlockType {
   static const String codeBlock = 'code_block';
   static const String horizontalRule = 'horizontal_rule';
   static const String image = 'image';
+  static const String mathBlock = 'math_block';
 }
 
 /// Base class for every node in the document.
@@ -253,6 +254,32 @@ final class ImageNode extends Node {
 
   @override
   String toString() => 'ImageNode($id, $url)';
+}
+
+/// A display math block: `$$ … $$` holding LaTeX [tex]. Atomic.
+@immutable
+final class MathBlockNode extends Node {
+  MathBlockNode({String? id, required this.tex, Attributes? attributes})
+      : super(id: id ?? NodeIds.next(), attributes: normalizeAttributes(attributes));
+
+  final String tex;
+
+  @override
+  String get type => BlockType.mathBlock;
+
+  @override
+  Node copyWith({Attributes? attributes}) =>
+      MathBlockNode(id: id, tex: tex, attributes: attributes ?? this.attributes);
+
+  @override
+  bool operator ==(Object other) =>
+      other is MathBlockNode && other.id == id && other.tex == tex;
+
+  @override
+  int get hashCode => Object.hash(id, tex);
+
+  @override
+  String toString() => 'MathBlockNode($id)';
 }
 
 /// A thematic break (`---`). An atomic, contentless block.

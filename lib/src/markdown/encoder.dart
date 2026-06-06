@@ -65,6 +65,9 @@ class MarkdownEncoder {
       final title = node.title != null ? ' "${node.title}"' : '';
       return '![${node.alt ?? ''}](${node.url}$title)';
     }
+    if (node is MathBlockNode) {
+      return '\$\$\n${node.tex}\n\$\$';
+    }
     if (node is TextBlockNode) {
       final inline = _encodeDelta(node.delta);
       switch (node.type) {

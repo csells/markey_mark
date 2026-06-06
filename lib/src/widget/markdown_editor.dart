@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_math_fork/flutter_math.dart';
 
 import '../model/delta.dart';
 import '../model/node.dart';
@@ -394,6 +395,7 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
                 if (node is CodeBlockNode) return _buildCodeBlock(node, style);
                 if (node is HorizontalRuleNode) return _buildHr(node, style);
                 if (node is ImageNode) return _buildImage(node, style);
+                if (node is MathBlockNode) return _buildMath(node, style);
                 if (node is TextBlockNode) return _buildBlock(node, style);
                 return const SizedBox.shrink();
               },
@@ -466,6 +468,21 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
           height: 1,
         ),
       );
+
+  Widget _buildMath(MathBlockNode node, EditorStyle style) {
+    return Container(
+      key: ValueKey('markey-block-${node.id}'),
+      alignment: Alignment.center,
+      padding: const EdgeInsets.symmetric(vertical: 8),
+      child: Math.tex(
+        node.tex,
+        mathStyle: MathStyle.display,
+        textStyle: style.baseTextStyle,
+        onErrorFallback: (e) =>
+            Text(node.tex, style: style.codeTextStyle.copyWith(backgroundColor: null)),
+      ),
+    );
+  }
 
   Widget _buildImage(ImageNode node, EditorStyle style) {
     return Align(
