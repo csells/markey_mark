@@ -41,6 +41,12 @@ class MarkdownEncoder {
     if (a is TextBlockNode && b is TextBlockNode) {
       if (_sameListFamily(a.type, b.type)) return '\n';
       if (a.type == BlockType.quote && b.type == BlockType.quote) return '\n';
+      // A definition term/desc is tight against a following description.
+      if ((a.type == BlockType.definitionTerm ||
+              a.type == BlockType.definitionDesc) &&
+          b.type == BlockType.definitionDesc) {
+        return '\n';
+      }
     }
     return blockSeparator;
   }
@@ -93,6 +99,10 @@ class MarkdownEncoder {
           return '> $inline';
         case BlockType.footnoteDef:
           return '[^${node.footnoteLabel ?? ''}]: $inline';
+        case BlockType.definitionTerm:
+          return inline;
+        case BlockType.definitionDesc:
+          return ': $inline';
         default:
           return inline;
       }

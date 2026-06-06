@@ -16,7 +16,7 @@ class MarkdownDecoder {
 
   md.Document _newMdDocument() => md.Document(
         extensionSet: md.ExtensionSet.gitHubFlavored,
-        blockSyntaxes: [MathBlockSyntax()],
+        blockSyntaxes: [MathBlockSyntax(), DefinitionListSyntax()],
         inlineSyntaxes: [MathInlineSyntax(), md.EmojiSyntax()],
         encodeHtml: false,
       );
@@ -81,6 +81,8 @@ class MarkdownDecoder {
           return _footnoteDefs(node);
         }
         return [TextBlockNode.paragraph(delta: _mapInline(node.children))];
+      case 'dl':
+        return _definitionList(node);
       case 'pre':
         return [_codeOrMermaid(node)];
       case 'code':
@@ -298,6 +300,19 @@ class MarkdownDecoder {
     return code;
   }
 
+  List<Node> _definitionList(md.Element dl) {
+    final out = <Node>[];
+    for (final child in dl.children ?? const <md.Node>[]) {
+      if (child is! md.Element) continue;
+      if (child.tag == 'dt') {
+        out.add(TextBlockNode.definitionTerm(delta: _mapInline(child.children)));
+      } else if (child.tag == 'dd') {
+        out.add(TextBlockNode.definitionDesc(delta: _mapInline(child.children)));
+      }
+    }
+    return out;
+  }
+
   CodeBlockNode _codeBlock(md.Element pre) {
     md.Element? codeEl;
     if (pre.tag == 'code') {
@@ -427,5 +442,37 @@ class MathInlineSyntax extends md.InlineSyntax {
   bool onMatch(md.InlineParser parser, Match match) {
     parser.addNode(md.Element.text('math', match[1]!));
     return true;
+  }
+}
+
+/// A custom block syntax for definition lists: a term line immediately followed
+/// by one or more `: definition` lines, producing a `dl` of `dt`/`dd` elements.
+class DefinitionListSyntax extends md.BlockSyntax {
+  @override
+  RegExp get pattern => RegExp(r'^(?! )\S.*$');
+
+  static final RegExp _def = RegExp(r'^:\s+(.*)$');
+
+  @override
+  bool canParse(md.BlockParser parser) {
+    final line = parser.current.content;
+    if (line.trim().isEmpty || _def.hasMatch(line.trimLeft())) return false;
+    final next = parser.next?.content;
+    return next != null && _def.hasMatch(next.trimLeft());
+  }
+
+  @override
+  md.Node parse(md.BlockParser parser) {
+    final children = <md.Node>[
+      md.Element('dt', [md.UnparsedContent(parser.current.content.trim())]),
+    ];
+    parser.advance();
+    while (!parser.isDone) {
+      final m = _def.firstMatch(parser.current.content.trimLeft());
+      if (m == null) break;
+      children.add(md.Element('dd', [md.UnparsedContent(m.group(1)!)]));
+      parser.advance();
+    }
+    return md.Element('dl', children);
   }
 }

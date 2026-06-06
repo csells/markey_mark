@@ -694,6 +694,9 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
           _marker('[${node.footnoteLabel ?? ''}]', style),
           content,
         );
+      case BlockType.definitionDesc:
+        return Padding(
+            padding: const EdgeInsets.only(left: 20), child: content);
       case BlockType.quote:
         return Container(
           key: ValueKey('markey-quote-${node.id}'),

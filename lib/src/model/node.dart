@@ -40,6 +40,8 @@ abstract final class BlockType {
   static const String mermaid = 'mermaid';
   static const String footnoteDef = 'footnote_def';
   static const String frontMatter = 'front_matter';
+  static const String definitionTerm = 'definition_term';
+  static const String definitionDesc = 'definition_desc';
 }
 
 /// Column alignment for a GFM table.
@@ -131,6 +133,14 @@ final class TextBlockNode extends Node {
         type: BlockType.quote,
         delta: delta ?? Delta.empty(),
       );
+
+  factory TextBlockNode.definitionTerm({String? id, Delta? delta}) =>
+      TextBlockNode(
+          id: id, type: BlockType.definitionTerm, delta: delta ?? Delta.empty());
+
+  factory TextBlockNode.definitionDesc({String? id, Delta? delta}) =>
+      TextBlockNode(
+          id: id, type: BlockType.definitionDesc, delta: delta ?? Delta.empty());
 
   factory TextBlockNode.footnoteDef(
           {String? id, required String label, Delta? delta}) =>

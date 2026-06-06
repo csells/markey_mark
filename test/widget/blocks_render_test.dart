@@ -159,6 +159,18 @@ void main() {
     await teardown(tester);
   });
 
+  testWidgets('definition list renders term + definitions', (tester) async {
+    final c = await pump(tester, 'Apple\n: A fruit\n: A company');
+    expect(tester.takeException(), isNull);
+    expect((c.document.nodes[0] as TextBlockNode).type, BlockType.definitionTerm);
+    // term + 2 definitions each render a block.
+    final blocks = find.byWidgetPredicate((w) =>
+        w.key is ValueKey &&
+        '${(w.key as ValueKey).value}'.startsWith('markey-block-'));
+    expect(blocks.evaluate().length, greaterThanOrEqualTo(3));
+    await teardown(tester);
+  });
+
   testWidgets('front matter renders as a labelled card', (tester) async {
     final c = await pump(tester, '---\ntitle: Hi\n---\n\nBody');
     final id = c.document.nodes.first.id;

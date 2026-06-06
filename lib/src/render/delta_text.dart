@@ -10,6 +10,9 @@ TextStyle baseStyleFor(TextBlockNode node, EditorStyle style) {
   if (node.type == BlockType.heading) {
     return style.headingStyle(node.level ?? 1);
   }
+  if (node.type == BlockType.definitionTerm) {
+    return style.baseTextStyle.copyWith(fontWeight: FontWeight.bold);
+  }
   return style.baseTextStyle;
 }
 
