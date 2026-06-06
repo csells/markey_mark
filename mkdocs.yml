@@ -51,6 +51,7 @@ nav:
       - Slash command menu: editing/slash-menu.md
       - Source mode: editing/source-mode.md
       - Keyboard shortcuts: editing/keyboard-shortcuts.md
+      - Find & replace: editing/find-replace.md
       - Undo & redo: editing/undo-redo.md
   - Reference:
       - Architecture: architecture.md

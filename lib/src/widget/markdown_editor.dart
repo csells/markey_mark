@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 
+import '../editing/search.dart';
 import '../model/delta.dart';
 import '../model/node.dart';
 import '../model/position.dart';
@@ -66,6 +67,13 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
   /// Native code highlighter for code blocks (no WebView/JS).
   final CodeHighlighter _highlighter = const DefaultCodeHighlighter();
 
+  // Find & replace bar state.
+  bool _showFind = false;
+  final TextEditingController _findController = TextEditingController();
+  final TextEditingController _replaceController = TextEditingController();
+  List<MatchLocation> _matches = const [];
+  int _matchIndex = -1;
+
   /// True after Escape dismisses the slash menu, until the `/` query is cleared.
   bool _slashSuppressed = false;
   static final RegExp _slashPattern = RegExp(r'^/(\S*)$');
@@ -93,6 +101,8 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
     _focusNode.removeListener(_onFocusChanged);
     if (widget.focusNode == null) _focusNode.dispose();
     _sourceController.dispose();
+    _findController.dispose();
+    _replaceController.dispose();
     _connection?.close();
     _disposeLayoutCache();
     super.dispose();
@@ -382,17 +392,112 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
     ));
   }
 
+  // ── Find & replace ─────────────────────────────────────────────────────
+
+  void _openFind() {
+    if (!_showFind) setState(() => _showFind = true);
+    _runFind();
+  }
+
+  void _closeFind() => setState(() => _showFind = false);
+
+  void _runFind() {
+    final matches = _c.findMatches(_findController.text);
+    setState(() {
+      _matches = matches;
+      _matchIndex = matches.isEmpty ? -1 : 0;
+    });
+    if (_matchIndex >= 0) _c.selectMatch(_matches[_matchIndex]);
+  }
+
+  void _findStep(int dir) {
+    if (_matches.isEmpty) return;
+    setState(() {
+      _matchIndex = (_matchIndex + dir + _matches.length) % _matches.length;
+    });
+    _c.selectMatch(_matches[_matchIndex]);
+  }
+
+  void _replaceAllFind() {
+    _c.replaceAll(_findController.text, _replaceController.text);
+    _runFind();
+  }
+
   // ── Build ────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
+    final style = _resolveStyle();
     final body = _c.mode == EditorMode.source ? _buildSource() : _buildWysiwyg();
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         if (widget.showToolbar) _Toolbar(controller: _c),
+        if (_showFind && _c.mode == EditorMode.wysiwyg) _buildFindBar(style),
         Expanded(child: body),
       ],
+    );
+  }
+
+  Widget _buildFindBar(EditorStyle style) {
+    return Material(
+      key: const Key('markey_find_bar'),
+      elevation: 1,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(
+            children: [
+              SizedBox(
+                width: 140,
+                child: TextField(
+                  key: const Key('markey_find_field'),
+                  controller: _findController,
+                  decoration: const InputDecoration(
+                      hintText: 'Find', isDense: true),
+                  onChanged: (_) => _runFind(),
+                ),
+              ),
+              const SizedBox(width: 8),
+              Text(_matches.isEmpty ? '0/0' : '${_matchIndex + 1}/${_matches.length}'),
+              IconButton(
+                key: const Key('markey_find_prev'),
+                tooltip: 'Previous',
+                icon: const Icon(Icons.keyboard_arrow_up),
+                onPressed: () => _findStep(-1),
+              ),
+              IconButton(
+                key: const Key('markey_find_next'),
+                tooltip: 'Next',
+                icon: const Icon(Icons.keyboard_arrow_down),
+                onPressed: () => _findStep(1),
+              ),
+              const SizedBox(width: 8),
+              SizedBox(
+                width: 140,
+                child: TextField(
+                  key: const Key('markey_find_replace_field'),
+                  controller: _replaceController,
+                  decoration: const InputDecoration(
+                      hintText: 'Replace', isDense: true),
+                ),
+              ),
+              TextButton(
+                key: const Key('markey_find_replaceall'),
+                onPressed: _replaceAllFind,
+                child: const Text('All'),
+              ),
+              IconButton(
+                key: const Key('markey_find_close'),
+                tooltip: 'Close',
+                icon: const Icon(Icons.close),
+                onPressed: _closeFind,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 
@@ -735,6 +840,7 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
       cmd(LogicalKeyboardKey.keyI): const _ToggleMarkIntent('italic'),
       cmd(LogicalKeyboardKey.keyZ): const _UndoIntent(),
       cmd(LogicalKeyboardKey.keyZ, shift: true): const _RedoIntent(),
+      cmd(LogicalKeyboardKey.keyF): const _FindIntent(),
       const SingleActivator(LogicalKeyboardKey.arrowLeft):
           const _MoveCaretIntent(false),
       const SingleActivator(LogicalKeyboardKey.arrowRight):
@@ -772,6 +878,10 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
           }
           return null;
         }),
+        _FindIntent: CallbackAction<_FindIntent>(onInvoke: (_) {
+          _openFind();
+          return null;
+        }),
       };
 }
 
@@ -792,6 +902,10 @@ class _RedoIntent extends Intent {
 
 class _DismissSlashIntent extends Intent {
   const _DismissSlashIntent();
+}
+
+class _FindIntent extends Intent {
+  const _FindIntent();
 }
 
 class _MoveCaretIntent extends Intent {

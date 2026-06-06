@@ -39,6 +39,7 @@ export 'src/editing/input_rules.dart'
         WrapInputRule,
         defaultInputRules,
         applyInputRules;
+export 'src/editing/search.dart' show MatchLocation, findInDocument;
 
 // Markdown pipeline (L0)
 export 'src/markdown/decoder.dart' show MarkdownDecoder;

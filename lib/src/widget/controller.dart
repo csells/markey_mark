@@ -5,6 +5,7 @@ import '../editing/commands.dart';
 import '../editing/editor.dart';
 import '../editing/input_rules.dart';
 import '../editing/operations.dart';
+import '../editing/search.dart';
 import '../editing/transaction.dart';
 import '../model/document.dart';
 import '../model/node.dart';
@@ -173,6 +174,66 @@ class MarkdownEditorController extends ChangeNotifier {
       selectionAfter:
           DocumentSelection.collapsed(DocumentPosition.text(para.id, 0)),
       tag: 'insert-block',
+    ));
+  }
+
+  // ── Find & replace ───────────────────────────────────────────────────────
+
+  /// All occurrences of [query] across the document, in order.
+  List<MatchLocation> findMatches(String query, {bool caseSensitive = false}) =>
+      findInDocument(document, query, caseSensitive: caseSensitive);
+
+  /// Selects [m] (so it's visible/highlighted).
+  void selectMatch(MatchLocation m) {
+    setSelection(DocumentSelection(
+      base: DocumentPosition.text(m.nodeId, m.start),
+      extent: DocumentPosition.text(m.nodeId, m.end),
+    ));
+  }
+
+  /// Replaces a single match with [replacement].
+  void replaceMatch(MatchLocation m, String replacement) {
+    _canRevertRule = false;
+    final node = document.nodeById(m.nodeId);
+    if (node is! TextBlockNode) return;
+    final index = document.indexOfId(node.id);
+    final attrs = m.start > 0 ? node.delta.attributesAt(m.start) : const <String, Object?>{};
+    final newDelta =
+        node.delta.delete(m.start, m.end).insert(m.start, replacement, attrs);
+    _editor.apply(EditTransaction(
+      operations: [ReplaceNodeOp(index, node, node.copyWithDelta(newDelta))],
+      selectionBefore: selection,
+      selectionAfter: DocumentSelection.collapsed(
+          DocumentPosition.text(node.id, m.start + replacement.length)),
+      tag: 'replace',
+    ));
+  }
+
+  /// Replaces every occurrence of [query] with [replacement] as one undo unit.
+  void replaceAll(String query, String replacement, {bool caseSensitive = false}) {
+    if (query.isEmpty) return;
+    _canRevertRule = false;
+    final ops = <Operation>[];
+    for (final node in document.nodes) {
+      if (node is! TextBlockNode) continue;
+      // Replace right-to-left so earlier offsets stay valid.
+      final matches = findInDocument(Document([node]), query,
+          caseSensitive: caseSensitive);
+      if (matches.isEmpty) continue;
+      var delta = node.delta;
+      for (final m in matches.reversed) {
+        final attrs = m.start > 0 ? delta.attributesAt(m.start) : const <String, Object?>{};
+        delta = delta.delete(m.start, m.end).insert(m.start, replacement, attrs);
+      }
+      ops.add(ReplaceNodeOp(
+          document.indexOfId(node.id), node, node.copyWithDelta(delta)));
+    }
+    if (ops.isEmpty) return;
+    _editor.apply(EditTransaction(
+      operations: ops,
+      selectionBefore: selection,
+      selectionAfter: selection,
+      tag: 'replace-all',
     ));
   }
 
