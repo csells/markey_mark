@@ -192,6 +192,69 @@ class MarkdownEditorController extends ChangeNotifier {
     ));
   }
 
+  // ── Smart paste ──────────────────────────────────────────────────────────
+
+  /// Parses [markdown] and inserts the resulting content at the caret. A single
+  /// paragraph merges inline (preserving marks); multi-block content splits the
+  /// current block and inserts the parsed blocks between the halves.
+  void pasteMarkdown(String markdown) {
+    if (markdown.isEmpty) return;
+    final sel = selection;
+    if (sel == null || sel.base.nodeId != sel.extent.nodeId) return;
+    final node = document.nodeById(sel.extent.nodeId);
+    if (node is! TextBlockNode) return;
+    final basePos = sel.base.nodePosition;
+    final extPos = sel.extent.nodePosition;
+    if (basePos is! TextNodePosition || extPos is! TextNodePosition) return;
+    final len = node.delta.length;
+    final start =
+        (basePos.offset < extPos.offset ? basePos.offset : extPos.offset)
+            .clamp(0, len);
+    final end = (basePos.offset < extPos.offset ? extPos.offset : basePos.offset)
+        .clamp(0, len);
+    final index = document.indexOfId(node.id);
+
+    final parsed = Markdown.parse(markdown).nodes;
+    _canRevertRule = false;
+
+    // Inline fast path: a single paragraph merges into the current block.
+    if (parsed.length == 1 &&
+        parsed.first is TextBlockNode &&
+        (parsed.first as TextBlockNode).type == BlockType.paragraph) {
+      final ins = (parsed.first as TextBlockNode).delta;
+      final merged = node.delta
+          .slice(0, start)
+          .concat(ins)
+          .concat(node.delta.slice(end, node.delta.length));
+      _editor.apply(EditTransaction(
+        operations: [ReplaceNodeOp(index, node, node.copyWithDelta(merged))],
+        selectionBefore: sel,
+        selectionAfter: DocumentSelection.collapsed(
+            DocumentPosition.text(node.id, start + ins.length)),
+        tag: 'paste',
+      ));
+      return;
+    }
+
+    // Multi-block paste: split the current block and insert parsed blocks.
+    final left = node.copyWithDelta(node.delta.slice(0, start));
+    final rightDelta = node.delta.slice(end, node.delta.length);
+    final right = TextBlockNode.paragraph(delta: rightDelta);
+    final ops = <Operation>[ReplaceNodeOp(index, node, left)];
+    var at = index + 1;
+    for (final n in parsed) {
+      ops.add(InsertNodeOp(at, n));
+      at++;
+    }
+    ops.add(InsertNodeOp(at, right));
+    _editor.apply(EditTransaction(
+      operations: ops,
+      selectionBefore: sel,
+      selectionAfter: DocumentSelection.collapsed(DocumentPosition.text(right.id, 0)),
+      tag: 'paste',
+    ));
+  }
+
   // ── Block reordering ─────────────────────────────────────────────────────
 
   void moveBlockUp(String nodeId) => _moveBlock(nodeId, -1);

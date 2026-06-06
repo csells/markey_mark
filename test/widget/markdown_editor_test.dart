@@ -392,6 +392,40 @@ void main() {
       await teardown(tester);
     });
 
+    testWidgets('Ctrl/Cmd+V smart-pastes Markdown from the clipboard',
+        (tester) async {
+      final c = MarkdownEditorController(markdown: 'Start');
+      addTearDown(c.dispose);
+      await pumpEditor(tester, c);
+      await tester.tap(firstBlock(c));
+      await tester.pump();
+      c.setSelection(DocumentSelection.collapsed(
+          DocumentPosition.text(c.document.nodes.first.id, 5)));
+      await tester.pump();
+
+      // Mock the platform clipboard so Clipboard.getData returns our text.
+      tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        SystemChannels.platform,
+        (call) async => call.method == 'Clipboard.getData'
+            ? <String, dynamic>{'text': '# Pasted\n\n- a\n- b'}
+            : null,
+      );
+      addTearDown(() => tester.binding.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null));
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.control);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyV);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.control);
+      await tester.pump();
+      await tester.pump();
+
+      final types =
+          c.document.nodes.map((n) => (n as TextBlockNode).type).toList();
+      expect(types, contains(BlockType.heading));
+      expect(types.where((t) => t == BlockType.bulletedListItem).length, 2);
+      await teardown(tester);
+    });
+
     testWidgets('multi-line insertion splits into several blocks',
         (tester) async {
       final c = MarkdownEditorController();

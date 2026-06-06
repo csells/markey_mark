@@ -20,3 +20,11 @@ On mobile, the soft keyboard / IME drives input; selection uses touch gestures.
 | <kbd>Alt</kbd>+<kbd>↑</kbd> / <kbd>Alt</kbd>+<kbd>↓</kbd> | Move the current block up / down |
 
 Also available programmatically: `controller.moveBlockUp(nodeId)` / `moveBlockDown(nodeId)`.
+
+## Paste
+
+| Shortcut | Action |
+|----------|--------|
+| <kbd>Ctrl/Cmd</kbd>+<kbd>V</kbd> | Smart-paste: parse clipboard Markdown into formatted blocks |
+
+Also `controller.pasteMarkdown(text)`.

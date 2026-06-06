@@ -424,6 +424,14 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
     _runFind();
   }
 
+  /// Reads the clipboard and smart-pastes it (parsing Markdown structure).
+  Future<void> _handlePaste() async {
+    if (widget.readOnly) return;
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    final text = data?.text;
+    if (text != null && text.isNotEmpty) _c.pasteMarkdown(text);
+  }
+
   // ── Build ────────────────────────────────────────────────────────────────
 
   @override
@@ -933,6 +941,7 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
       cmd(LogicalKeyboardKey.keyZ): const _UndoIntent(),
       cmd(LogicalKeyboardKey.keyZ, shift: true): const _RedoIntent(),
       cmd(LogicalKeyboardKey.keyF): const _FindIntent(),
+      cmd(LogicalKeyboardKey.keyV): const _PasteIntent(),
       const SingleActivator(LogicalKeyboardKey.arrowLeft):
           const _MoveCaretIntent(false),
       const SingleActivator(LogicalKeyboardKey.arrowRight):
@@ -978,6 +987,10 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
           _openFind();
           return null;
         }),
+        _PasteIntent: CallbackAction<_PasteIntent>(onInvoke: (_) {
+          _handlePaste();
+          return null;
+        }),
         _MoveBlockIntent: CallbackAction<_MoveBlockIntent>(onInvoke: (i) {
           final id = _c.selection?.extent.nodeId;
           if (id != null) {
@@ -1014,6 +1027,10 @@ class _FindIntent extends Intent {
 class _MoveBlockIntent extends Intent {
   const _MoveBlockIntent(this.dir);
   final int dir;
+}
+
+class _PasteIntent extends Intent {
+  const _PasteIntent();
 }
 
 class _MoveCaretIntent extends Intent {
