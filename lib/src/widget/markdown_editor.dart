@@ -937,6 +937,10 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
           const _MoveCaretIntent(false),
       const SingleActivator(LogicalKeyboardKey.arrowRight):
           const _MoveCaretIntent(true),
+      const SingleActivator(LogicalKeyboardKey.arrowUp, alt: true):
+          const _MoveBlockIntent(-1),
+      const SingleActivator(LogicalKeyboardKey.arrowDown, alt: true):
+          const _MoveBlockIntent(1),
       const SingleActivator(LogicalKeyboardKey.escape): const _DismissSlashIntent(),
     };
   }
@@ -974,6 +978,13 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
           _openFind();
           return null;
         }),
+        _MoveBlockIntent: CallbackAction<_MoveBlockIntent>(onInvoke: (i) {
+          final id = _c.selection?.extent.nodeId;
+          if (id != null) {
+            i.dir < 0 ? _c.moveBlockUp(id) : _c.moveBlockDown(id);
+          }
+          return null;
+        }),
       };
 }
 
@@ -998,6 +1009,11 @@ class _DismissSlashIntent extends Intent {
 
 class _FindIntent extends Intent {
   const _FindIntent();
+}
+
+class _MoveBlockIntent extends Intent {
+  const _MoveBlockIntent(this.dir);
+  final int dir;
 }
 
 class _MoveCaretIntent extends Intent {

@@ -317,6 +317,25 @@ void main() {
       await teardown(tester);
     });
 
+    testWidgets('Alt+Down moves the current block down', (tester) async {
+      final c = MarkdownEditorController(markdown: 'one\n\ntwo');
+      addTearDown(c.dispose);
+      await pumpEditor(tester, c);
+      await tester.tap(firstBlock(c));
+      await tester.pump();
+      c.setSelection(DocumentSelection.collapsed(
+          DocumentPosition.text(c.document.nodes.first.id, 0)));
+      await tester.pump();
+
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.alt);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.alt);
+      await tester.pump();
+
+      expect((c.document.nodes.first as TextBlockNode).delta.toPlainText(), 'two');
+      await teardown(tester);
+    });
+
     testWidgets('arrow keys move the caret', (tester) async {
       final c = MarkdownEditorController(markdown: 'Hello');
       addTearDown(c.dispose);

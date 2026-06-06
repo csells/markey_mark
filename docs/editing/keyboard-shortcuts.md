@@ -12,3 +12,11 @@ On desktop and web (use <kbd>Cmd</kbd> on macOS, <kbd>Ctrl</kbd> elsewhere):
 | <kbd>Esc</kbd> | Dismiss the [slash menu](slash-menu.md) |
 
 On mobile, the soft keyboard / IME drives input; selection uses touch gestures.
+
+## Block reordering
+
+| Shortcut | Action |
+|----------|--------|
+| <kbd>Alt</kbd>+<kbd>↑</kbd> / <kbd>Alt</kbd>+<kbd>↓</kbd> | Move the current block up / down |
+
+Also available programmatically: `controller.moveBlockUp(nodeId)` / `moveBlockDown(nodeId)`.

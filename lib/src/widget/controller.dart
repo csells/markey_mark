@@ -192,6 +192,26 @@ class MarkdownEditorController extends ChangeNotifier {
     ));
   }
 
+  // ── Block reordering ─────────────────────────────────────────────────────
+
+  void moveBlockUp(String nodeId) => _moveBlock(nodeId, -1);
+  void moveBlockDown(String nodeId) => _moveBlock(nodeId, 1);
+
+  void _moveBlock(String nodeId, int dir) {
+    _canRevertRule = false;
+    final i = document.indexOfId(nodeId);
+    if (i < 0) return;
+    final target = i + dir;
+    if (target < 0 || target >= document.length) return;
+    final node = document.nodes[i];
+    _editor.apply(EditTransaction(
+      operations: [DeleteNodeOp(i, node), InsertNodeOp(target, node)],
+      selectionBefore: selection,
+      selectionAfter: selection,
+      tag: 'move-block',
+    ));
+  }
+
   // ── Table editing ────────────────────────────────────────────────────────
 
   void _applyTable(String tableId, TableNode Function(TableNode) update) {
