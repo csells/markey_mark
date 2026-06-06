@@ -74,6 +74,9 @@ class MarkdownEncoder {
     if (node is MermaidNode) {
       return '```mermaid\n${node.source}\n```';
     }
+    if (node is FrontMatterNode) {
+      return '---\n${node.yaml}\n---';
+    }
     if (node is TextBlockNode) {
       final inline = _encodeDelta(node.delta);
       switch (node.type) {

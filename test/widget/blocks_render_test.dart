@@ -159,6 +159,14 @@ void main() {
     await teardown(tester);
   });
 
+  testWidgets('front matter renders as a labelled card', (tester) async {
+    final c = await pump(tester, '---\ntitle: Hi\n---\n\nBody');
+    final id = c.document.nodes.first.id;
+    expect(find.byKey(ValueKey('markey-frontmatter-$id')), findsOneWidget);
+    expect(find.text('front matter'), findsOneWidget);
+    await teardown(tester);
+  });
+
   testWidgets('footnote definition renders with its label marker',
       (tester) async {
     await pump(tester, 'A note[^1].\n\n[^1]: The note text.');

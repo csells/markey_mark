@@ -45,6 +45,8 @@ nav:
       - Diagrams: features/diagrams.md
       - Images: features/images.md
       - Links: features/links.md
+      - Emoji: features/emoji.md
+      - Front matter: features/front-matter.md
       - Footnotes: features/footnotes.md
   - Editing:
       - Markdown input rules: editing/input-rules.md

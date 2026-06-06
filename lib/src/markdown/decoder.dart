@@ -17,13 +17,25 @@ class MarkdownDecoder {
   md.Document _newMdDocument() => md.Document(
         extensionSet: md.ExtensionSet.gitHubFlavored,
         blockSyntaxes: [MathBlockSyntax()],
-        inlineSyntaxes: [MathInlineSyntax()],
+        inlineSyntaxes: [MathInlineSyntax(), md.EmojiSyntax()],
         encodeHtml: false,
       );
 
+  static final RegExp _frontMatter = RegExp(r'^---\r?\n(.*?)\r?\n---[ \t]*\r?\n?',
+      dotAll: true);
+
   Document convert(String markdown) {
-    final mdNodes = _newMdDocument().parse(markdown);
     final nodes = <Node>[];
+    var source = markdown;
+
+    // Leading YAML front matter (only at the very start of the document).
+    final fm = _frontMatter.firstMatch(source);
+    if (fm != null && fm.start == 0) {
+      nodes.add(FrontMatterNode(yaml: fm.group(1)!.trimRight()));
+      source = source.substring(fm.end);
+    }
+
+    final mdNodes = _newMdDocument().parse(source);
     for (final mdNode in mdNodes) {
       nodes.addAll(_expand(mdNode));
     }

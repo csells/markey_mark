@@ -19,6 +19,7 @@ export 'src/model/node.dart'
         TableNode,
         TableAlign,
         MermaidNode,
+        FrontMatterNode,
         BlockType,
         NodeIds;
 export 'src/model/document.dart' show Document;

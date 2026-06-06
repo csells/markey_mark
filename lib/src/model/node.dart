@@ -39,6 +39,7 @@ abstract final class BlockType {
   static const String table = 'table';
   static const String mermaid = 'mermaid';
   static const String footnoteDef = 'footnote_def';
+  static const String frontMatter = 'front_matter';
 }
 
 /// Column alignment for a GFM table.
@@ -325,6 +326,33 @@ final class MathBlockNode extends Node {
 
   @override
   String toString() => 'MathBlockNode($id)';
+}
+
+/// Leading YAML front matter (`--- … ---` at the document start), passed
+/// through verbatim as [yaml]. Atomic.
+@immutable
+final class FrontMatterNode extends Node {
+  FrontMatterNode({String? id, required this.yaml, Attributes? attributes})
+      : super(id: id ?? NodeIds.next(), attributes: normalizeAttributes(attributes));
+
+  final String yaml;
+
+  @override
+  String get type => BlockType.frontMatter;
+
+  @override
+  Node copyWith({Attributes? attributes}) =>
+      FrontMatterNode(id: id, yaml: yaml, attributes: attributes ?? this.attributes);
+
+  @override
+  bool operator ==(Object other) =>
+      other is FrontMatterNode && other.id == id && other.yaml == yaml;
+
+  @override
+  int get hashCode => Object.hash(id, yaml);
+
+  @override
+  String toString() => 'FrontMatterNode($id)';
 }
 
 /// A GFM table: [rows] of cells (each a [Delta]), row 0 being the header, plus

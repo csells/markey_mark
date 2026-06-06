@@ -575,6 +575,9 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
                     if (node is MermaidNode) {
                       return widget.diagramRenderer.build(context, node, style);
                     }
+                    if (node is FrontMatterNode) {
+                      return _buildFrontMatter(node, style);
+                    }
                     if (node is TextBlockNode) {
                       return Semantics(
                         header: node.type == BlockType.heading,
@@ -799,6 +802,34 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
             style: style.baseTextStyle,
           ),
         ),
+      ),
+    );
+  }
+
+  Widget _buildFrontMatter(FrontMatterNode node, EditorStyle style) {
+    final mono = style.codeTextStyle.copyWith(backgroundColor: null);
+    return Container(
+      key: ValueKey('markey-frontmatter-${node.id}'),
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: style.codeTextStyle.backgroundColor,
+        borderRadius: BorderRadius.circular(6),
+        border: Border(
+          left: BorderSide(color: style.caretColor.withValues(alpha: 0.4), width: 4),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('front matter',
+              style: mono.copyWith(
+                fontSize: (mono.fontSize ?? 14) * 0.8,
+                color: style.caretColor.withValues(alpha: 0.6),
+              )),
+          const SizedBox(height: 4),
+          Text(node.yaml, style: mono),
+        ],
       ),
     );
   }
