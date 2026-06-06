@@ -8,7 +8,14 @@ library;
 // Model (L1)
 export 'src/model/attributes.dart' show Attributes, InlineAttr;
 export 'src/model/delta.dart' show Delta, TextRun;
-export 'src/model/node.dart' show Node, TextBlockNode, BlockType, NodeIds;
+export 'src/model/node.dart'
+    show
+        Node,
+        TextBlockNode,
+        CodeBlockNode,
+        HorizontalRuleNode,
+        BlockType,
+        NodeIds;
 export 'src/model/document.dart' show Document;
 export 'src/model/position.dart'
     show DocumentPosition, NodePosition, TextNodePosition, AtomicNodePosition;
@@ -37,4 +44,6 @@ export 'src/markdown/markdown.dart' show Markdown;
 export 'src/widget/controller.dart' show MarkdownEditorController, EditorMode;
 export 'src/widget/markdown_editor.dart' show MarkdownEditor;
 export 'src/render/delta_text.dart' show deltaToTextSpan;
+export 'src/render/code_highlight.dart'
+    show CodeHighlighter, DefaultCodeHighlighter;
 export 'src/theme/editor_style.dart' show EditorStyle;

@@ -151,6 +151,31 @@ abstract final class EditCommands {
     );
   }
 
+  /// Toggles a task list item's checked state (addressed by node id, since the
+  /// tap target is the checkbox, not the caret).
+  static EditTransaction? toggleTodo(
+    Document doc,
+    String nodeId,
+    DocumentSelection? sel,
+  ) {
+    final node = doc.nodeById(nodeId);
+    if (node is! TextBlockNode || node.type != BlockType.todoListItem) {
+      return null;
+    }
+    final index = doc.indexOfId(nodeId);
+    final newNode = TextBlockNode.todo(
+      id: node.id,
+      checked: !(node.checked ?? false),
+      delta: node.delta,
+    );
+    return EditTransaction(
+      operations: [ReplaceNodeOp(index, node, newNode)],
+      selectionBefore: sel,
+      selectionAfter: sel,
+      tag: 'toggle-todo',
+    );
+  }
+
   /// Changes the current block's type (e.g. paragraph → heading).
   static EditTransaction? setBlockType(
     Document doc,

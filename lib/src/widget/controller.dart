@@ -123,6 +123,12 @@ class MarkdownEditorController extends ChangeNotifier {
     if (txn != null) _editor.apply(txn);
   }
 
+  /// Toggles the checked state of the task-list item with [nodeId].
+  void toggleTodo(String nodeId) {
+    final txn = EditCommands.toggleTodo(document, nodeId, selection);
+    if (txn != null) _editor.apply(txn);
+  }
+
   void undo() => _editor.undo();
   void redo() => _editor.redo();
 

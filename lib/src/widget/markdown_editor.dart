@@ -9,6 +9,7 @@ import '../model/delta.dart';
 import '../model/node.dart';
 import '../model/position.dart';
 import '../model/selection.dart';
+import '../render/code_highlight.dart';
 import '../render/delta_text.dart';
 import '../theme/editor_style.dart';
 import 'controller.dart';
@@ -49,6 +50,9 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
 
   /// Per-block laid-out text, keyed by node id (see [_layoutFor]).
   final Map<String, _CachedLayout> _layoutCache = {};
+
+  /// Native code highlighter for code blocks (no WebView/JS).
+  final CodeHighlighter _highlighter = const DefaultCodeHighlighter();
 
   MarkdownEditorController get _c => widget.controller;
 
@@ -386,10 +390,10 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
               separatorBuilder: (_, __) => SizedBox(height: style.blockSpacing),
               itemBuilder: (context, index) {
                 final node = _c.document.nodes[index];
-                if (node is! TextBlockNode) {
-                  return const SizedBox.shrink();
-                }
-                return _buildBlock(node, style);
+                if (node is CodeBlockNode) return _buildCodeBlock(node, style);
+                if (node is HorizontalRuleNode) return _buildHr(node, style);
+                if (node is TextBlockNode) return _buildBlock(node, style);
+                return const SizedBox.shrink();
               },
             ),
           ),
@@ -398,7 +402,104 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
     );
   }
 
+  /// Wraps the editable text content with any block decoration (list marker,
+  /// task checkbox, quote bar).
   Widget _buildBlock(TextBlockNode node, EditorStyle style) {
+    final content = _textContent(node, style);
+    switch (node.type) {
+      case BlockType.bulletedListItem:
+        return _gutterRow(_marker('•', style), content);
+      case BlockType.numberedListItem:
+        return _gutterRow(_marker('${node.number ?? 1}.', style), content);
+      case BlockType.todoListItem:
+        return _gutterRow(
+          Padding(
+            padding: const EdgeInsets.only(top: 2),
+            child: SizedBox(
+              width: 24,
+              height: 24,
+              child: Checkbox(
+                value: node.checked ?? false,
+                visualDensity: VisualDensity.compact,
+                materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                onChanged:
+                    widget.readOnly ? null : (_) => _c.toggleTodo(node.id),
+              ),
+            ),
+          ),
+          content,
+        );
+      case BlockType.quote:
+        return Container(
+          key: ValueKey('markey-quote-${node.id}'),
+          padding: const EdgeInsets.only(left: 12),
+          decoration: BoxDecoration(
+            border: Border(
+              left: BorderSide(color: style.caretColor.withValues(alpha: 0.4), width: 4),
+            ),
+          ),
+          child: content,
+        );
+      default:
+        return content;
+    }
+  }
+
+  Widget _gutterRow(Widget marker, Widget content) => Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Padding(padding: const EdgeInsets.only(right: 8), child: marker),
+          Expanded(child: content),
+        ],
+      );
+
+  Widget _marker(String text, EditorStyle style) =>
+      Text(text, style: style.baseTextStyle);
+
+  Widget _buildHr(HorizontalRuleNode node, EditorStyle style) => Padding(
+        padding: const EdgeInsets.symmetric(vertical: 8),
+        child: Divider(
+          key: ValueKey('markey-block-${node.id}'),
+          thickness: 1,
+          height: 1,
+        ),
+      );
+
+  Widget _buildCodeBlock(CodeBlockNode node, EditorStyle style) {
+    final codeStyle = style.codeTextStyle.copyWith(backgroundColor: null);
+    final spans = _highlighter.highlight(node.code, node.language, codeStyle);
+    return Container(
+      key: ValueKey('markey-code-${node.id}'),
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: style.codeTextStyle.backgroundColor,
+        borderRadius: BorderRadius.circular(6),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (node.language != null && node.language!.isNotEmpty)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 6),
+              child: Text(
+                node.language!,
+                style: codeStyle.copyWith(
+                  fontSize: (codeStyle.fontSize ?? 14) * 0.8,
+                  color: style.caretColor.withValues(alpha: 0.6),
+                ),
+              ),
+            ),
+          SingleChildScrollView(
+            scrollDirection: Axis.horizontal,
+            child: RichText(text: TextSpan(children: spans)),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _textContent(TextBlockNode node, EditorStyle style) {
     final base = baseStyleFor(node, style);
     final sel = _c.selection;
 
