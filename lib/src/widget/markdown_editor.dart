@@ -1335,6 +1335,7 @@ class _SelectionToolbar extends StatelessWidget {
             btn('bold', Icons.format_bold, 'bold', 'Bold'),
             btn('italic', Icons.format_italic, 'italic', 'Italic'),
             btn('strike', Icons.format_strikethrough, 'strike', 'Strikethrough'),
+            btn('highlight', Icons.highlight, 'highlight', 'Highlight'),
             btn('code', Icons.code, 'code', 'Inline code'),
           ],
         ),

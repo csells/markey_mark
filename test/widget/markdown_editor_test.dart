@@ -563,6 +563,31 @@ void main() {
       await teardown(tester);
     });
 
+    testWidgets('highlight button marks the selection', (tester) async {
+      final c = MarkdownEditorController(markdown: 'Hello world');
+      addTearDown(c.dispose);
+      await pumpEditor(tester, c);
+      await tester.tap(firstBlock(c));
+      await tester.pump();
+
+      final id = c.document.nodes.first.id;
+      c.setSelection(DocumentSelection(
+        base: DocumentPosition.text(id, 0),
+        extent: DocumentPosition.text(id, 5),
+      ));
+      await tester.pump();
+
+      await tester.tap(find.byKey(const Key('markey_bubble_highlight')));
+      await tester.pump();
+      expect(
+        (c.document.nodes.first as TextBlockNode)
+            .delta
+            .isFormatted(0, 5, 'highlight'),
+        isTrue,
+      );
+      await teardown(tester);
+    });
+
     testWidgets('is hidden when the selection is collapsed', (tester) async {
       final c = MarkdownEditorController(markdown: 'Hello');
       addTearDown(c.dispose);

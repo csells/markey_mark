@@ -29,5 +29,5 @@ Markdown.
 ## The selection bubble toolbar
 
 Selecting text pops up a compact floating toolbar with **Bold**, *Italic*, ~~Strikethrough~~,
-and `code` — tap to apply to the selection. The persistent toolbar at the top offers the same
+==Highlight== and `code` — tap to apply to the selection. The persistent toolbar at the top offers the same
 actions plus block conversions and the source toggle.
