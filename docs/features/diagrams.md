@@ -15,10 +15,22 @@ graph TD;
 ```
 ````
 
-## Rendering
+## Native rendering
 
-Rendering is **100% native** — there is no WebView or JavaScript anywhere in the editor. A
-native Dart diagram engine is being built in stages (by diagram type); until a given diagram
-type is supported it degrades gracefully to a readable **source card** (shown above) with a
-`mermaid` badge. You can also plug in your own renderer via the `diagramRenderer` parameter of
-`MarkdownEditor`.
+Rendering is **100% native** — no WebView or JavaScript anywhere. A native Dart diagram engine
+is being built in stages (by diagram type). **Pie charts already render natively:**
+
+![Native pie chart](../images/mermaid-pie.png)
+
+````markdown
+```mermaid
+pie title Languages
+"Dart" : 70
+"YAML" : 20
+"Other" : 10
+```
+````
+
+Diagram types not yet implemented degrade gracefully to a readable **source card** with a
+`mermaid` badge (the flowchart above). You can also plug in your own renderer via the
+`diagramRenderer` parameter of `MarkdownEditor`.

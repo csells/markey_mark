@@ -33,7 +33,7 @@ class MarkdownEditor extends StatefulWidget {
     this.readOnly = false,
     this.focusNode,
     this.slashItems,
-    this.diagramRenderer = const SourceCardDiagramRenderer(),
+    this.diagramRenderer = const NativeDiagramRenderer(),
   });
 
   final MarkdownEditorController controller;

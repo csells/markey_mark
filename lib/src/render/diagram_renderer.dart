@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../diagram/mermaid_pie.dart';
 import '../model/node.dart';
 import '../theme/editor_style.dart';
 
@@ -8,6 +9,30 @@ import '../theme/editor_style.dart';
 /// platform with no WebView/JS, degrading to a readable source card.
 abstract class DiagramRenderer {
   Widget build(BuildContext context, MermaidNode node, EditorStyle style);
+}
+
+/// The native diagram engine: renders the diagram types it supports in pure
+/// Dart (currently pie charts), and degrades to [fallback] (a source card) for
+/// types not yet implemented. No WebView, no JavaScript.
+class NativeDiagramRenderer implements DiagramRenderer {
+  const NativeDiagramRenderer(
+      {this.fallback = const SourceCardDiagramRenderer()});
+
+  final DiagramRenderer fallback;
+
+  @override
+  Widget build(BuildContext context, MermaidNode node, EditorStyle style) {
+    final pie = parsePie(node.source);
+    if (pie != null) {
+      return Container(
+        key: ValueKey('markey-pie-${node.id}'),
+        padding: const EdgeInsets.all(12),
+        alignment: Alignment.centerLeft,
+        child: MermaidPieView(chart: pie, textStyle: style.baseTextStyle),
+      );
+    }
+    return fallback.build(context, node, style);
+  }
 }
 
 /// The always-available native fallback: shows the diagram source in a styled

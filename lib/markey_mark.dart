@@ -57,4 +57,6 @@ export 'src/render/markdown_source_highlight.dart'
 export 'src/theme/editor_style.dart' show EditorStyle;
 export 'src/ui/slash_menu.dart' show SlashMenu, SlashMenuItem, defaultSlashItems;
 export 'src/render/diagram_renderer.dart'
-    show DiagramRenderer, SourceCardDiagramRenderer;
+    show DiagramRenderer, SourceCardDiagramRenderer, NativeDiagramRenderer;
+export 'src/diagram/mermaid_pie.dart'
+    show PieChart, PieSlice, parsePie, MermaidPieView;

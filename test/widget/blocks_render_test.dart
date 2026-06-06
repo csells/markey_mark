@@ -138,11 +138,23 @@ void main() {
     await teardown(tester);
   });
 
-  testWidgets('mermaid block renders the native diagram card', (tester) async {
+  testWidgets('mermaid flowchart degrades to the native source card',
+      (tester) async {
     final c = await pump(tester, '```mermaid\ngraph TD;\nA-->B;\n```');
     final id = c.document.nodes.first.id;
     expect(find.byKey(ValueKey('markey-mermaid-$id')), findsOneWidget);
     expect(find.text('mermaid'), findsOneWidget);
+    await teardown(tester);
+  });
+
+  testWidgets('mermaid pie chart renders natively (no source card)',
+      (tester) async {
+    final c = await pump(
+        tester, '```mermaid\npie title Pets\n"Dogs" : 386\n"Cats" : 85\n```');
+    final id = c.document.nodes.first.id;
+    expect(find.byKey(ValueKey('markey-pie-$id')), findsOneWidget);
+    expect(find.text('mermaid'), findsNothing); // not the fallback card
+    expect(find.byType(MermaidPieView), findsOneWidget);
     await teardown(tester);
   });
 
