@@ -45,7 +45,11 @@ class MarkdownDecoder {
     }
     switch (tag) {
       case 'p':
+        final image = _soleImage(node);
+        if (image != null) return [image];
         return [TextBlockNode.paragraph(delta: _mapInline(node.children))];
+      case 'img':
+        return [_imageOf(node)];
       case 'hr':
         return [HorizontalRuleNode()];
       case 'ul':
@@ -146,6 +150,28 @@ class MarkdownDecoder {
     }
     return out;
   }
+
+  /// If [p] contains only a single image (ignoring whitespace), returns it.
+  ImageNode? _soleImage(md.Element p) {
+    md.Element? img;
+    for (final c in p.children ?? const <md.Node>[]) {
+      if (c is md.Element && c.tag == 'img') {
+        if (img != null) return null; // more than one image
+        img = c;
+      } else if (c is md.Text && c.text.trim().isEmpty) {
+        continue;
+      } else {
+        return null; // other content present
+      }
+    }
+    return img == null ? null : _imageOf(img);
+  }
+
+  ImageNode _imageOf(md.Element img) => ImageNode(
+        url: img.attributes['src'] ?? '',
+        alt: (img.attributes['alt'] ?? '').isEmpty ? null : img.attributes['alt'],
+        title: img.attributes['title'],
+      );
 
   CodeBlockNode _codeBlock(md.Element pre) {
     md.Element? codeEl;

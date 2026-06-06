@@ -14,6 +14,7 @@ export 'src/model/node.dart'
         TextBlockNode,
         CodeBlockNode,
         HorizontalRuleNode,
+        ImageNode,
         BlockType,
         NodeIds;
 export 'src/model/document.dart' show Document;

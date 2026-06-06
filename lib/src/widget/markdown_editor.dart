@@ -393,6 +393,7 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
                 final node = _c.document.nodes[index];
                 if (node is CodeBlockNode) return _buildCodeBlock(node, style);
                 if (node is HorizontalRuleNode) return _buildHr(node, style);
+                if (node is ImageNode) return _buildImage(node, style);
                 if (node is TextBlockNode) return _buildBlock(node, style);
                 return const SizedBox.shrink();
               },
@@ -465,6 +466,25 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
           height: 1,
         ),
       );
+
+  Widget _buildImage(ImageNode node, EditorStyle style) {
+    return Align(
+      key: ValueKey('markey-block-${node.id}'),
+      alignment: Alignment.centerLeft,
+      child: Image.network(
+        node.url,
+        semanticLabel: node.alt,
+        errorBuilder: (context, error, stack) => Container(
+          padding: const EdgeInsets.all(8),
+          color: style.codeTextStyle.backgroundColor,
+          child: Text(
+            node.alt?.isNotEmpty == true ? '🖼 ${node.alt}' : '🖼 image',
+            style: style.baseTextStyle,
+          ),
+        ),
+      ),
+    );
+  }
 
   Widget _buildCodeBlock(CodeBlockNode node, EditorStyle style) {
     final codeStyle = style.codeTextStyle.copyWith(backgroundColor: null);

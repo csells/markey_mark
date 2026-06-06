@@ -34,6 +34,7 @@ abstract final class BlockType {
   static const String quote = 'quote';
   static const String codeBlock = 'code_block';
   static const String horizontalRule = 'horizontal_rule';
+  static const String image = 'image';
 }
 
 /// Base class for every node in the document.
@@ -210,6 +211,48 @@ final class CodeBlockNode extends Node {
 
   @override
   String toString() => 'CodeBlockNode($id, ${language ?? 'plain'})';
+}
+
+/// An image block: `![alt](url "title")`. Atomic.
+@immutable
+final class ImageNode extends Node {
+  ImageNode({
+    String? id,
+    required this.url,
+    this.alt,
+    this.title,
+    Attributes? attributes,
+  }) : super(id: id ?? NodeIds.next(), attributes: normalizeAttributes(attributes));
+
+  final String url;
+  final String? alt;
+  final String? title;
+
+  @override
+  String get type => BlockType.image;
+
+  @override
+  Node copyWith({Attributes? attributes}) => ImageNode(
+        id: id,
+        url: url,
+        alt: alt,
+        title: title,
+        attributes: attributes ?? this.attributes,
+      );
+
+  @override
+  bool operator ==(Object other) =>
+      other is ImageNode &&
+      other.id == id &&
+      other.url == url &&
+      other.alt == alt &&
+      other.title == title;
+
+  @override
+  int get hashCode => Object.hash(id, url, alt, title);
+
+  @override
+  String toString() => 'ImageNode($id, $url)';
 }
 
 /// A thematic break (`---`). An atomic, contentless block.

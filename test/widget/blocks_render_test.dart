@@ -83,4 +83,10 @@ void main() {
     expect(find.byKey(ValueKey('markey-code-$id')), findsOneWidget);
     await teardown(tester);
   });
+
+  testWidgets('image block renders an Image widget', (tester) async {
+    await pump(tester, '![alt](https://example.com/x.png)');
+    expect(find.byType(Image), findsOneWidget);
+    await teardown(tester);
+  });
 }
