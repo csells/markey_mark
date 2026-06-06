@@ -22,6 +22,16 @@ its interactions), and **integration** (end-to-end flows through the public API)
 - New behavior lands **with** its tests in the same change; new bugs land **with** a failing
   regression test first.
 
+**A feature is not complete until it works end-to-end from the UI.** Unit tests are necessary
+but not sufficient: every user-facing feature must have at least one **widget/integration
+test that drives it through the real `MarkdownEditor` widget** (typing via the text-input
+client, tapping toolbar/affordances, toggling modes) — not just a model-level unit test. We
+track **UI-only coverage** (`flutter test --coverage test/widget test/integration`) in
+addition to total coverage; the widget layer must stay near-100% under UI-only runs, and the
+residual gap to total coverage is expected to be pure-function edge cases (e.g. every
+`Delta.slice`/operation-inverse boundary) that unit tests own and the UI cannot exhaustively
+reach.
+
 ## 10.1 Test tiers
 
 1. **Unit (pure Dart, cheap, run on Linux CI):**

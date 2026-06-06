@@ -131,4 +131,27 @@ void main() {
     expect(c.markdown, source);
     await teardown(tester);
   });
+
+  testWidgets('rich blocks round-trip through the source toggle in the UI',
+      (tester) async {
+    const source = '# Title\n\n'
+        '- one\n- two\n\n'
+        '1. first\n2. second\n\n'
+        '- [ ] todo\n- [x] done\n\n'
+        '> a quote\n\n'
+        '```dart\nvar x = 1;\n```\n\n'
+        r'$$' '\n' r'E = mc^2' '\n' r'$$' '\n\n'
+        '![pic](https://example.com/p.png)\n\n'
+        '---';
+    final c = await pump(tester, markdown: source);
+
+    await tester.tap(find.byKey(const Key('markey_toggle_mode')));
+    await tester.pump();
+    expect(find.text(source), findsOneWidget);
+
+    await tester.tap(find.byKey(const Key('markey_toggle_mode')));
+    await tester.pump();
+    expect(c.markdown, source);
+    await teardown(tester);
+  });
 }
