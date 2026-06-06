@@ -35,6 +35,18 @@ Each `OutlineEntry` carries the heading `level` (1–6), its plain `text` (inlin
 formatting stripped) and the `nodeId` of the heading block, so a nav pane can
 scroll to or select the heading when tapped.
 
+### Table of contents
+
+`tableOfContents()` renders the outline as a nested Markdown list linking to
+each heading's anchor slug (the same slugs [HTML export](html-export.md) uses),
+so it works as an in-document TOC:
+
+```dart
+final toc = controller.tableOfContents();
+// - [Intro](#intro)
+//   - [Details](#details)
+```
+
 ## Keeping a live counter
 
 Recompute on every change by listening to the controller:

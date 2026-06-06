@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 
 import 'package:characters/characters.dart';
 import 'package:flutter/foundation.dart';
@@ -14,6 +15,7 @@ import '../model/node.dart';
 import '../model/position.dart';
 import '../model/selection.dart';
 import '../markdown/markdown.dart';
+import '../markdown/slug.dart';
 
 /// Which view the editor is presenting.
 enum EditorMode {
@@ -493,6 +495,23 @@ class MarkdownEditorController extends ChangeNotifier {
 
   /// Serializes the current document to semantic HTML.
   String toHtml() => Markdown.toHtml(document);
+
+  /// Builds a nested Markdown table of contents linking to each heading's
+  /// anchor slug (matching [toHtml]'s heading ids). Returns an empty string
+  /// when the document has no headings.
+  String tableOfContents() {
+    final entries = outline();
+    if (entries.isEmpty) return '';
+    final minLevel = entries.map((e) => e.level).reduce(math.min);
+    final slugs = SlugAllocator();
+    final lines = <String>[];
+    for (final e in entries) {
+      final indent = '  ' * (e.level - minLevel);
+      final slug = slugs.allocate(slugify(e.text));
+      lines.add('$indent- [${e.text}](#$slug)');
+    }
+    return lines.join('\n');
+  }
 
   /// Returns the document's headings in order as an [OutlineEntry] list,
   /// suitable for a table-of-contents / navigation pane.

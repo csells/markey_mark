@@ -51,6 +51,7 @@ export 'src/markdown/decoder.dart' show MarkdownDecoder;
 export 'src/markdown/encoder.dart' show MarkdownEncoder;
 export 'src/markdown/markdown.dart' show Markdown, MarkdownToHtml;
 export 'src/markdown/html_encoder.dart' show HtmlEncoder;
+export 'src/markdown/slug.dart' show slugify, SlugAllocator;
 
 // Widget + controller (L7)
 export 'src/widget/controller.dart'
