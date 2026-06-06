@@ -113,6 +113,15 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
     return _slashPattern.firstMatch(block.delta.toPlainText())?.group(1);
   }
 
+  /// True when there's a non-collapsed selection within a single focused block
+  /// (the condition for showing the bubble toolbar).
+  bool _hasRangeSelection() {
+    if (!_focusNode.hasFocus || widget.readOnly) return false;
+    final sel = _c.selection;
+    if (sel == null || sel.isCollapsed) return false;
+    return sel.base.nodeId == sel.extent.nodeId;
+  }
+
   void _selectSlash(SlashMenuItem item) {
     final block = _activeBlock;
     if (block == null) return;
@@ -461,6 +470,13 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
                     query: slashQuery,
                     onSelected: _selectSlash,
                   ),
+                ),
+              if (slashQuery == null && _hasRangeSelection())
+                Positioned(
+                  left: 0,
+                  right: 0,
+                  top: style.padding.top,
+                  child: Center(child: _SelectionToolbar(controller: _c)),
                 ),
             ],
           ),
@@ -844,6 +860,44 @@ class _BlockPainter extends CustomPainter {
       old.showCaret != showCaret ||
       old.selectionColor != selectionColor ||
       old.caretColor != caretColor;
+}
+
+// ── Selection bubble toolbar ───────────────────────────────────────────────
+
+/// A compact floating toolbar shown over a text selection (Medium/Google-Docs
+/// style) for quick inline formatting.
+class _SelectionToolbar extends StatelessWidget {
+  const _SelectionToolbar({required this.controller});
+  final MarkdownEditorController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    Widget btn(String key, IconData icon, String mark, String tip) => IconButton(
+          key: Key('markey_bubble_$key'),
+          tooltip: tip,
+          iconSize: 18,
+          visualDensity: VisualDensity.compact,
+          icon: Icon(icon),
+          onPressed: () => controller.toggleMark(mark),
+        );
+    return Material(
+      key: const Key('markey_bubble'),
+      elevation: 4,
+      borderRadius: BorderRadius.circular(8),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            btn('bold', Icons.format_bold, 'bold', 'Bold'),
+            btn('italic', Icons.format_italic, 'italic', 'Italic'),
+            btn('strike', Icons.format_strikethrough, 'strike', 'Strikethrough'),
+            btn('code', Icons.code, 'code', 'Inline code'),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 // ── Toolbar ────────────────────────────────────────────────────────────────

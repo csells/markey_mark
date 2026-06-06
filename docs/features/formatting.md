@@ -20,3 +20,9 @@ Inline marks: **bold**, *italic*, ~~strikethrough~~, `inline code`, and [links](
 
 Marks nest and combine (e.g. **bold _and italic_**), and always round-trip to canonical
 Markdown.
+
+## The selection bubble toolbar
+
+Selecting text pops up a compact floating toolbar with **Bold**, *Italic*, ~~Strikethrough~~,
+and `code` — tap to apply to the selection. The persistent toolbar at the top offers the same
+actions plus block conversions and the source toggle.

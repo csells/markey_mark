@@ -452,6 +452,47 @@ void main() {
     });
   });
 
+  group('Selection bubble toolbar', () {
+    testWidgets('appears on a non-empty selection and formats it',
+        (tester) async {
+      final c = MarkdownEditorController(markdown: 'Hello world');
+      addTearDown(c.dispose);
+      await pumpEditor(tester, c);
+      await tester.tap(firstBlock(c));
+      await tester.pump();
+
+      final id = c.document.nodes.first.id;
+      c.setSelection(DocumentSelection(
+        base: DocumentPosition.text(id, 0),
+        extent: DocumentPosition.text(id, 5),
+      ));
+      await tester.pump();
+
+      expect(find.byKey(const Key('markey_bubble')), findsOneWidget);
+      await tester.tap(find.byKey(const Key('markey_bubble_bold')));
+      await tester.pump();
+      expect(
+        (c.document.nodes.first as TextBlockNode).delta.isFormatted(0, 5, 'bold'),
+        isTrue,
+      );
+      await teardown(tester);
+    });
+
+    testWidgets('is hidden when the selection is collapsed', (tester) async {
+      final c = MarkdownEditorController(markdown: 'Hello');
+      addTearDown(c.dispose);
+      await pumpEditor(tester, c);
+      await tester.tap(firstBlock(c));
+      await tester.pump();
+      c.setSelection(DocumentSelection.collapsed(
+        DocumentPosition.text(c.document.nodes.first.id, 2),
+      ));
+      await tester.pump();
+      expect(find.byKey(const Key('markey_bubble')), findsNothing);
+      await teardown(tester);
+    });
+  });
+
   group('Performance, responsiveness & resource use', () {
     testWidgets('idle (unfocused) editor runs no timers — pumpAndSettle settles',
         (tester) async {
