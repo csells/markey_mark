@@ -62,3 +62,12 @@ export 'src/diagram/mermaid_pie.dart'
     show PieChart, PieSlice, parsePie, MermaidPieView;
 export 'src/diagram/mermaid_sequence.dart'
     show SequenceDiagram, SeqMessage, parseSequence, SequenceDiagramView;
+export 'src/diagram/mermaid_flowchart.dart'
+    show
+        Flowchart,
+        FlowNode,
+        FlowEdge,
+        FlowDirection,
+        FlowShape,
+        parseFlowchart,
+        FlowchartView;

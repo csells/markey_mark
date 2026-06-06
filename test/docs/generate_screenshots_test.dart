@@ -145,9 +145,15 @@ A native, cross-platform **WYSIWYG Markdown editor** for Flutter.
         '```mermaid\nsequenceDiagram\nparticipant Alice\nparticipant Bob\nAlice->>Bob: Hello Bob\nBob-->>Alice: Hi Alice\n```');
   });
 
+  testWidgets('mermaid-flowchart', (t) async {
+    await shoot(t, 'mermaid-flowchart',
+        '```mermaid\ngraph TD\nA[Start] --> B{Choice}\nB -->|yes| C[Do it]\nB -->|no| D[Skip]\n```',
+        size: const Size(760, 420));
+  });
+
   testWidgets('mermaid', (t) async {
     await shoot(t, 'mermaid',
-        '```mermaid\ngraph TD;\n  A[Start] --> B{Choice};\n  B --> C[Done];\n```');
+        '```mermaid\nclassDiagram\n  Animal <|-- Dog\n  Animal <|-- Cat\n```');
   });
 
   testWidgets('math', (t) async {

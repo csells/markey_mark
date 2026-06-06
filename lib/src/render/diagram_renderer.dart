@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../diagram/mermaid_flowchart.dart';
 import '../diagram/mermaid_pie.dart';
 import '../diagram/mermaid_sequence.dart';
 import '../model/node.dart';
@@ -44,6 +45,24 @@ class NativeDiagramRenderer implements DiagramRenderer {
             diagram: seq,
             textStyle: style.baseTextStyle,
             lineColor: style.caretColor,
+          ),
+        ),
+      );
+    }
+    final flow = parseFlowchart(node.source);
+    if (flow != null) {
+      return Container(
+        key: ValueKey('markey-flowchart-${node.id}'),
+        padding: const EdgeInsets.all(12),
+        alignment: Alignment.centerLeft,
+        child: SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: FlowchartView(
+            chart: flow,
+            textStyle: style.baseTextStyle,
+            lineColor: style.caretColor,
+            fillColor: style.codeTextStyle.backgroundColor ??
+                style.caretColor.withValues(alpha: 0.08),
           ),
         ),
       );

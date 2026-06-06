@@ -1,24 +1,27 @@
 # Diagrams (Mermaid)
 
 Mermaid diagrams are written as a ` ```mermaid ` fenced block and are a first-class node in
-the document.
+the document. Rendering is **100% native Dart — no WebView, no JavaScript anywhere.** A native
+diagram engine renders the supported types and degrades gracefully to a readable source card
+for the rest.
 
-![Mermaid diagram block](../images/mermaid.png)
+## Flowcharts
 
-## Markdown
+![Native flowchart](../images/mermaid-flowchart.png)
 
 ````markdown
 ```mermaid
-graph TD;
-  A[Start] --> B{Choice};
-  B --> C[Done];
+graph TD
+A[Start] --> B{Choice}
+B -->|yes| C[Do it]
+B -->|no| D[Skip]
 ```
 ````
 
-## Native rendering
+Supports `graph`/`flowchart` with `TD`/`LR` directions, node shapes (`[rect]`, `(rounded)`,
+`{diamond}`, `((circle))`), and labeled edges, laid out in layers.
 
-Rendering is **100% native** — no WebView or JavaScript anywhere. A native Dart diagram engine
-is being built in stages (by diagram type). **Pie charts already render natively:**
+## Pie charts
 
 ![Native pie chart](../images/mermaid-pie.png)
 
@@ -31,7 +34,7 @@ pie title Languages
 ```
 ````
 
-**Sequence diagrams** also render natively (lifelines, solid/dashed message arrows):
+## Sequence diagrams
 
 ![Native sequence diagram](../images/mermaid-sequence.png)
 
@@ -43,6 +46,12 @@ sequenceDiagram
 ```
 ````
 
-Diagram types not yet implemented degrade gracefully to a readable **source card** with a
-`mermaid` badge (the flowchart above). You can also plug in your own renderer via the
-`diagramRenderer` parameter of `MarkdownEditor`.
+## Other types
+
+Diagram types the native engine doesn't yet support (e.g. class, state, gantt) degrade
+gracefully to a readable **source card** with a `mermaid` badge:
+
+![Mermaid source-card fallback](../images/mermaid.png)
+
+You can also plug in your own renderer via the `diagramRenderer` parameter of
+`MarkdownEditor`.

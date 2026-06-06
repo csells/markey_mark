@@ -138,9 +138,18 @@ void main() {
     await teardown(tester);
   });
 
-  testWidgets('mermaid flowchart degrades to the native source card',
+  testWidgets('mermaid flowchart renders natively', (tester) async {
+    final c = await pump(tester, '```mermaid\ngraph TD\nA[Start] --> B[End]\n```');
+    final id = c.document.nodes.first.id;
+    expect(find.byKey(ValueKey('markey-flowchart-$id')), findsOneWidget);
+    expect(find.byType(FlowchartView), findsOneWidget);
+    expect(find.text('mermaid'), findsNothing);
+    await teardown(tester);
+  });
+
+  testWidgets('an unsupported diagram type degrades to the source card',
       (tester) async {
-    final c = await pump(tester, '```mermaid\ngraph TD;\nA-->B;\n```');
+    final c = await pump(tester, '```mermaid\nclassDiagram\nAnimal <|-- Dog\n```');
     final id = c.document.nodes.first.id;
     expect(find.byKey(ValueKey('markey-mermaid-$id')), findsOneWidget);
     expect(find.text('mermaid'), findsOneWidget);
