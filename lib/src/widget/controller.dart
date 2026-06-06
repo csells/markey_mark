@@ -4,6 +4,8 @@ import 'package:flutter/foundation.dart';
 import '../editing/commands.dart';
 import '../editing/editor.dart';
 import '../editing/input_rules.dart';
+import '../editing/operations.dart';
+import '../editing/transaction.dart';
 import '../model/document.dart';
 import '../model/node.dart';
 import '../model/position.dart';
@@ -144,6 +146,34 @@ class MarkdownEditorController extends ChangeNotifier {
     _canRevertRule = false;
     final txn = EditCommands.toggleTodo(document, nodeId, selection);
     if (txn != null) _editor.apply(txn);
+  }
+
+  /// Replaces the active block with a thematic break, adding a trailing
+  /// paragraph for the caret.
+  void insertDivider() => _replaceActiveWithAtomic(HorizontalRuleNode());
+
+  /// Replaces the active block with an (empty) code block, adding a trailing
+  /// paragraph for the caret.
+  void insertCodeBlock() => _replaceActiveWithAtomic(CodeBlockNode(code: ''));
+
+  void _replaceActiveWithAtomic(Node atomic) {
+    _canRevertRule = false;
+    final sel = selection;
+    if (sel == null) return;
+    final node = document.nodeById(sel.extent.nodeId);
+    if (node == null) return;
+    final index = document.indexOfId(node.id);
+    final para = TextBlockNode.paragraph();
+    _editor.apply(EditTransaction(
+      operations: [
+        ReplaceNodeOp(index, node, atomic),
+        InsertNodeOp(index + 1, para),
+      ],
+      selectionBefore: sel,
+      selectionAfter:
+          DocumentSelection.collapsed(DocumentPosition.text(para.id, 0)),
+      tag: 'insert-block',
+    ));
   }
 
   void undo() {

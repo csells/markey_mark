@@ -14,6 +14,7 @@ import '../render/code_highlight.dart';
 import '../render/delta_text.dart';
 import '../render/markdown_source_highlight.dart';
 import '../theme/editor_style.dart';
+import '../ui/slash_menu.dart';
 import 'controller.dart';
 
 /// A native, cross-platform WYSIWYG Markdown editor widget.
@@ -29,6 +30,7 @@ class MarkdownEditor extends StatefulWidget {
     this.showToolbar = true,
     this.readOnly = false,
     this.focusNode,
+    this.slashItems,
   });
 
   final MarkdownEditorController controller;
@@ -36,6 +38,9 @@ class MarkdownEditor extends StatefulWidget {
   final bool showToolbar;
   final bool readOnly;
   final FocusNode? focusNode;
+
+  /// Slash (`/`) command-menu items. Defaults to [defaultSlashItems].
+  final List<SlashMenuItem>? slashItems;
 
   @override
   State<MarkdownEditor> createState() => _MarkdownEditorState();
@@ -55,6 +60,12 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
 
   /// Native code highlighter for code blocks (no WebView/JS).
   final CodeHighlighter _highlighter = const DefaultCodeHighlighter();
+
+  /// True after Escape dismisses the slash menu, until the `/` query is cleared.
+  bool _slashSuppressed = false;
+  static final RegExp _slashPattern = RegExp(r'^/(\S*)$');
+
+  List<SlashMenuItem> get _slashItems => widget.slashItems ?? defaultSlashItems;
 
   MarkdownEditorController get _c => widget.controller;
 
@@ -83,7 +94,31 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
   }
 
   void _onControllerChanged() {
+    // Re-arm the slash menu once the `/` query is gone.
+    if (_activeSlashQuery() == null) _slashSuppressed = false;
     if (mounted) setState(_syncImeFromModel);
+  }
+
+  /// The slash-menu query if the focused active block is a paragraph matching
+  /// `^/(\S*)$`, else null.
+  String? _activeSlashQuery() {
+    if (!_focusNode.hasFocus || widget.readOnly) return null;
+    final block = _activeBlock;
+    if (block == null || block.type != BlockType.paragraph) return null;
+    return _slashPattern.firstMatch(block.delta.toPlainText())?.group(1);
+  }
+
+  void _selectSlash(SlashMenuItem item) {
+    final block = _activeBlock;
+    if (block == null) return;
+    // Clear the typed `/query`, then apply the command to the empty block.
+    _c.setSelection(DocumentSelection(
+      base: DocumentPosition.text(block.id, 0),
+      extent: DocumentPosition.text(block.id, block.delta.length),
+    ));
+    _c.deleteBackward();
+    item.apply(_c);
+    setState(() => _slashSuppressed = true);
   }
 
   void _onFocusChanged() {
@@ -377,29 +412,48 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
 
   Widget _buildWysiwyg() {
     final style = _resolveStyle();
+    final slashQuery = _slashSuppressed ? null : _activeSlashQuery();
     return Shortcuts(
       shortcuts: _shortcuts(),
       child: Actions(
         actions: _actions(),
         child: Focus(
           focusNode: _focusNode,
-          child: GestureDetector(
-            behavior: HitTestBehavior.translucent,
-            onTap: _focusNode.requestFocus,
-            child: ListView.separated(
-              padding: style.padding,
-              itemCount: _c.document.nodes.length,
-              separatorBuilder: (_, __) => SizedBox(height: style.blockSpacing),
-              itemBuilder: (context, index) {
-                final node = _c.document.nodes[index];
-                if (node is CodeBlockNode) return _buildCodeBlock(node, style);
-                if (node is HorizontalRuleNode) return _buildHr(node, style);
-                if (node is ImageNode) return _buildImage(node, style);
-                if (node is MathBlockNode) return _buildMath(node, style);
-                if (node is TextBlockNode) return _buildBlock(node, style);
-                return const SizedBox.shrink();
-              },
-            ),
+          child: Stack(
+            children: [
+              GestureDetector(
+                behavior: HitTestBehavior.translucent,
+                onTap: _focusNode.requestFocus,
+                child: ListView.separated(
+                  padding: style.padding,
+                  itemCount: _c.document.nodes.length,
+                  separatorBuilder: (_, __) =>
+                      SizedBox(height: style.blockSpacing),
+                  itemBuilder: (context, index) {
+                    final node = _c.document.nodes[index];
+                    if (node is CodeBlockNode) {
+                      return _buildCodeBlock(node, style);
+                    }
+                    if (node is HorizontalRuleNode) return _buildHr(node, style);
+                    if (node is ImageNode) return _buildImage(node, style);
+                    if (node is MathBlockNode) return _buildMath(node, style);
+                    if (node is TextBlockNode) return _buildBlock(node, style);
+                    return const SizedBox.shrink();
+                  },
+                ),
+              ),
+              if (slashQuery != null)
+                Positioned(
+                  left: style.padding.left,
+                  top: style.padding.top,
+                  child: SlashMenu(
+                    key: const Key('markey_slash_menu'),
+                    items: _slashItems,
+                    query: slashQuery,
+                    onSelected: _selectSlash,
+                  ),
+                ),
+            ],
           ),
         ),
       ),
@@ -595,6 +649,7 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
           const _MoveCaretIntent(false),
       const SingleActivator(LogicalKeyboardKey.arrowRight):
           const _MoveCaretIntent(true),
+      const SingleActivator(LogicalKeyboardKey.escape): const _DismissSlashIntent(),
     };
   }
 
@@ -621,6 +676,12 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
           }
           return null;
         }),
+        _DismissSlashIntent: CallbackAction<_DismissSlashIntent>(onInvoke: (_) {
+          if (_activeSlashQuery() != null) {
+            setState(() => _slashSuppressed = true);
+          }
+          return null;
+        }),
       };
 }
 
@@ -637,6 +698,10 @@ class _UndoIntent extends Intent {
 
 class _RedoIntent extends Intent {
   const _RedoIntent();
+}
+
+class _DismissSlashIntent extends Intent {
+  const _DismissSlashIntent();
 }
 
 class _MoveCaretIntent extends Intent {

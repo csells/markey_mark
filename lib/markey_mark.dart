@@ -51,3 +51,4 @@ export 'src/render/code_highlight.dart'
 export 'src/render/markdown_source_highlight.dart'
     show markdownSourceSpans, MarkdownSourceTheme;
 export 'src/theme/editor_style.dart' show EditorStyle;
+export 'src/ui/slash_menu.dart' show SlashMenu, SlashMenuItem, defaultSlashItems;
