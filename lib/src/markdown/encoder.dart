@@ -27,21 +27,57 @@ class MarkdownEncoder {
   };
 
   String convert(Document doc) {
-    final parts = <String>[];
-    for (final node in doc.nodes) {
-      parts.add(_encodeBlock(node));
+    final buf = StringBuffer();
+    for (var i = 0; i < doc.nodes.length; i++) {
+      if (i > 0) buf.write(_separatorBetween(doc.nodes[i - 1], doc.nodes[i]));
+      buf.write(_encodeBlock(doc.nodes[i]));
     }
-    return parts.join(blockSeparator);
+    return buf.toString();
+  }
+
+  /// Tight separator (single newline) between items of the same list family or
+  /// consecutive quote lines; a blank line between everything else.
+  String _separatorBetween(Node a, Node b) {
+    if (a is TextBlockNode && b is TextBlockNode) {
+      if (_sameListFamily(a.type, b.type)) return '\n';
+      if (a.type == BlockType.quote && b.type == BlockType.quote) return '\n';
+    }
+    return blockSeparator;
+  }
+
+  static bool _sameListFamily(String a, String b) {
+    const bulleted = {BlockType.bulletedListItem, BlockType.todoListItem};
+    if (bulleted.contains(a) && bulleted.contains(b)) return true;
+    if (a == BlockType.numberedListItem && b == BlockType.numberedListItem) {
+      return true;
+    }
+    return false;
   }
 
   String _encodeBlock(Node node) {
+    if (node is CodeBlockNode) {
+      return '```${node.language ?? ''}\n${node.code}\n```';
+    }
+    if (node is HorizontalRuleNode) {
+      return '---';
+    }
     if (node is TextBlockNode) {
       final inline = _encodeDelta(node.delta);
-      if (node.type == BlockType.heading) {
-        final level = (node.level ?? 1).clamp(1, 6);
-        return '${'#' * level} $inline';
+      switch (node.type) {
+        case BlockType.heading:
+          final level = (node.level ?? 1).clamp(1, 6);
+          return '${'#' * level} $inline';
+        case BlockType.bulletedListItem:
+          return '- $inline';
+        case BlockType.numberedListItem:
+          return '${node.number ?? 1}. $inline';
+        case BlockType.todoListItem:
+          return '- [${(node.checked ?? false) ? 'x' : ' '}] $inline';
+        case BlockType.quote:
+          return '> $inline';
+        default:
+          return inline;
       }
-      return inline;
     }
     return '';
   }

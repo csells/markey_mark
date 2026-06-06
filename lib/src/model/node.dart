@@ -28,6 +28,12 @@ final class NodeIds {
 abstract final class BlockType {
   static const String paragraph = 'paragraph';
   static const String heading = 'heading';
+  static const String bulletedListItem = 'bulleted_list_item';
+  static const String numberedListItem = 'numbered_list_item';
+  static const String todoListItem = 'todo_list_item';
+  static const String quote = 'quote';
+  static const String codeBlock = 'code_block';
+  static const String horizontalRule = 'horizontal_rule';
 }
 
 /// Base class for every node in the document.
@@ -82,6 +88,45 @@ final class TextBlockNode extends Node {
         attributes: {'level': level},
       );
 
+  factory TextBlockNode.bullet({String? id, Delta? delta}) => TextBlockNode(
+        id: id,
+        type: BlockType.bulletedListItem,
+        delta: delta ?? Delta.empty(),
+      );
+
+  factory TextBlockNode.numbered({String? id, required int number, Delta? delta}) =>
+      TextBlockNode(
+        id: id,
+        type: BlockType.numberedListItem,
+        delta: delta ?? Delta.empty(),
+        attributes: {'number': number},
+      );
+
+  factory TextBlockNode.todo({String? id, bool checked = false, Delta? delta}) =>
+      TextBlockNode(
+        id: id,
+        type: BlockType.todoListItem,
+        delta: delta ?? Delta.empty(),
+        attributes: {'checked': checked},
+      );
+
+  factory TextBlockNode.quote({String? id, Delta? delta}) => TextBlockNode(
+        id: id,
+        type: BlockType.quote,
+        delta: delta ?? Delta.empty(),
+      );
+
+  /// Ordered-list number (for [BlockType.numberedListItem]); null otherwise.
+  int? get number => attributes['number'] as int?;
+
+  /// Task checkbox state (for [BlockType.todoListItem]); null for other types.
+  ///
+  /// Derived from the presence of a truthy `checked` attribute, so an unchecked
+  /// task (whose `false` is dropped by attribute normalization) still reports
+  /// `false` rather than null.
+  bool? get checked =>
+      type == BlockType.todoListItem ? attributes['checked'] == true : null;
+
   TextBlockNode copyWithDelta(Delta newDelta) => TextBlockNode(
         id: id,
         type: type,
@@ -119,4 +164,74 @@ final class TextBlockNode extends Node {
   @override
   String toString() =>
       'TextBlockNode($id, $type${level != null ? ' h$level' : ''}, $delta)';
+}
+
+/// A fenced/indented code block: literal [code] text with an optional [language]
+/// for syntax highlighting. Its content is plain text, not a [Delta].
+@immutable
+final class CodeBlockNode extends Node {
+  CodeBlockNode({
+    String? id,
+    required this.code,
+    this.language,
+    Attributes? attributes,
+  }) : super(id: id ?? NodeIds.next(), attributes: normalizeAttributes(attributes));
+
+  final String code;
+  final String? language;
+
+  @override
+  String get type => BlockType.codeBlock;
+
+  CodeBlockNode copyWithCode(String newCode, {String? language}) => CodeBlockNode(
+        id: id,
+        code: newCode,
+        language: language ?? this.language,
+        attributes: attributes,
+      );
+
+  @override
+  Node copyWith({Attributes? attributes}) => CodeBlockNode(
+        id: id,
+        code: code,
+        language: language,
+        attributes: attributes ?? this.attributes,
+      );
+
+  @override
+  bool operator ==(Object other) =>
+      other is CodeBlockNode &&
+      other.id == id &&
+      other.code == code &&
+      other.language == language;
+
+  @override
+  int get hashCode => Object.hash(id, code, language);
+
+  @override
+  String toString() => 'CodeBlockNode($id, ${language ?? 'plain'})';
+}
+
+/// A thematic break (`---`). An atomic, contentless block.
+@immutable
+final class HorizontalRuleNode extends Node {
+  HorizontalRuleNode({String? id, Attributes? attributes})
+      : super(id: id ?? NodeIds.next(), attributes: normalizeAttributes(attributes));
+
+  @override
+  String get type => BlockType.horizontalRule;
+
+  @override
+  Node copyWith({Attributes? attributes}) =>
+      HorizontalRuleNode(id: id, attributes: attributes ?? this.attributes);
+
+  @override
+  bool operator ==(Object other) =>
+      other is HorizontalRuleNode && other.id == id;
+
+  @override
+  int get hashCode => id.hashCode;
+
+  @override
+  String toString() => 'HorizontalRuleNode($id)';
 }

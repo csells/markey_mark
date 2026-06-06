@@ -23,35 +23,151 @@ class MarkdownDecoder {
     final mdNodes = _newMdDocument().parse(markdown);
     final nodes = <Node>[];
     for (final mdNode in mdNodes) {
-      final block = _mapBlock(mdNode);
-      if (block != null) nodes.add(block);
+      nodes.addAll(_expand(mdNode));
     }
     return Document(nodes);
   }
 
-  Node? _mapBlock(md.Node node) {
+  List<Node> _expand(md.Node node) {
     if (node is md.Text) {
-      // Stray text at block level → paragraph.
       final text = node.text.trim();
-      if (text.isEmpty) return null;
-      return TextBlockNode.paragraph(delta: Delta.text(text));
+      if (text.isEmpty) return const [];
+      return [TextBlockNode.paragraph(delta: Delta.text(text))];
     }
-    if (node is! md.Element) return null;
+    if (node is! md.Element) return const [];
 
     final tag = node.tag;
     if (tag.length == 2 && tag[0] == 'h') {
       final level = int.tryParse(tag[1]);
       if (level != null && level >= 1 && level <= 6) {
-        return TextBlockNode.heading(level: level, delta: _mapInline(node.children));
+        return [TextBlockNode.heading(level: level, delta: _mapInline(node.children))];
       }
     }
     switch (tag) {
       case 'p':
-        return TextBlockNode.paragraph(delta: _mapInline(node.children));
+        return [TextBlockNode.paragraph(delta: _mapInline(node.children))];
+      case 'hr':
+        return [HorizontalRuleNode()];
+      case 'ul':
+        return _listItems(node, ordered: false);
+      case 'ol':
+        return _listItems(node, ordered: true);
+      case 'blockquote':
+        return _quote(node);
+      case 'pre':
+        return [_codeBlock(node)];
+      case 'code':
+        // Bare code element treated as a code block.
+        return [_codeBlock(node)];
       default:
-        // Fallback: keep content as a paragraph rather than dropping it.
-        return TextBlockNode.paragraph(delta: _mapInline(node.children));
+        return [TextBlockNode.paragraph(delta: _mapInline(node.children))];
     }
+  }
+
+  /// Inline children of a list item / quote, flattening wrapping `<p>` and
+  /// skipping nested lists (handled as their own blocks later).
+  List<md.Node> _inlineChildren(md.Element element) {
+    final out = <md.Node>[];
+    for (final c in element.children ?? const <md.Node>[]) {
+      if (c is md.Element && (c.tag == 'ul' || c.tag == 'ol')) continue;
+      if (c is md.Element && c.tag == 'p') {
+        out.addAll(c.children ?? const <md.Node>[]);
+      } else {
+        out.add(c);
+      }
+    }
+    return out;
+  }
+
+  List<Node> _listItems(md.Element list, {required bool ordered}) {
+    final start = int.tryParse(list.attributes['start'] ?? '1') ?? 1;
+    final out = <Node>[];
+    var index = 0;
+    for (final li in list.children ?? const <md.Node>[]) {
+      if (li is! md.Element || li.tag != 'li') continue;
+      final inlineNodes = _inlineChildren(li);
+      final checked = _checkboxState(inlineNodes);
+      var delta = _mapInline(inlineNodes);
+
+      // Task-list checkbox: GFM renders it as an <input> element (no text);
+      // text-prefix is a fallback if the checkbox wasn't parsed.
+      if (checked != null) {
+        delta = _trimLeadingSpace(delta);
+        out.add(TextBlockNode.todo(checked: checked, delta: delta));
+      } else {
+        final plain = delta.toPlainText();
+        if (plain.startsWith('[ ] ')) {
+          out.add(TextBlockNode.todo(
+              checked: false, delta: delta.slice(4, delta.length)));
+        } else if (plain.startsWith('[x] ') || plain.startsWith('[X] ')) {
+          out.add(TextBlockNode.todo(
+              checked: true, delta: delta.slice(4, delta.length)));
+        } else if (ordered) {
+          out.add(TextBlockNode.numbered(number: start + index, delta: delta));
+        } else {
+          out.add(TextBlockNode.bullet(delta: delta));
+        }
+      }
+      index++;
+    }
+    return out;
+  }
+
+  /// Returns the checked state if [nodes] contain a task-list checkbox
+  /// `<input type="checkbox">`, else null.
+  bool? _checkboxState(List<md.Node> nodes) {
+    for (final n in nodes) {
+      if (n is md.Element && n.tag == 'input') {
+        return n.attributes.containsKey('checked');
+      }
+    }
+    return null;
+  }
+
+  Delta _trimLeadingSpace(Delta delta) {
+    final plain = delta.toPlainText();
+    if (plain.startsWith(' ')) return delta.slice(1, delta.length);
+    return delta;
+  }
+
+  List<Node> _quote(md.Element quote) {
+    final out = <Node>[];
+    for (final child in quote.children ?? const <md.Node>[]) {
+      if (child is md.Element && child.tag == 'p') {
+        out.add(TextBlockNode.quote(delta: _mapInline(child.children)));
+      } else if (child is md.Element && child.tag == 'blockquote') {
+        out.addAll(_quote(child)); // nested → flattened for now
+      } else if (child is md.Text && child.text.trim().isNotEmpty) {
+        out.add(TextBlockNode.quote(delta: Delta.text(child.text.trim())));
+      }
+    }
+    if (out.isEmpty) {
+      out.add(TextBlockNode.quote(delta: _mapInline(quote.children)));
+    }
+    return out;
+  }
+
+  CodeBlockNode _codeBlock(md.Element pre) {
+    md.Element? codeEl;
+    if (pre.tag == 'code') {
+      codeEl = pre;
+    } else {
+      for (final c in pre.children ?? const <md.Node>[]) {
+        if (c is md.Element && c.tag == 'code') {
+          codeEl = c;
+          break;
+        }
+      }
+    }
+    final el = codeEl ?? pre;
+    var code = el.textContent;
+    if (code.endsWith('\n')) code = code.substring(0, code.length - 1);
+    String? language;
+    final cls = el.attributes['class'];
+    if (cls != null && cls.startsWith('language-')) {
+      language = cls.substring('language-'.length);
+    }
+    return CodeBlockNode(code: code, language: language);
   }
 
   Delta _mapInline(List<md.Node>? children) {
