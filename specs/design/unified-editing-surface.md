@@ -122,15 +122,27 @@ registration**, not five edits.
 
 Each step ships behind the existing public API with green tests:
 
-1. **`DocumentText` stream + mapping** (pure model) + property tests. ✅ seam.
-2. **Stable ids** + fractional-index ordering; round-trip + merge tests.
-3. **Selection authority**: route all selection mutations through one
-   `SelectionController` that speaks global offsets; gestures become thin.
-4. **IME on the stream**: the input client maps deltas via `DocumentText`;
-   delete the cross-block special-cases.
-5. **Tables & code as regions**: render their text through the same stream so a
-   selection can enter/cross them; retire their private `TextField`s.
-6. **`BlockSpec` registry**: collapse the per-type switches.
+1. ✅ **`DocumentText` stream + mapping** (pure model) + property tests
+   (`document_text.dart`, exact round-trip).
+2. ✅ **Stable ids** via `NodeIdGenerator` (per-site prefix, collision-free
+   across peers). *Fractional-index ordering for mergeable reorders is still
+   open.*
+3. 🟡 **Selection authority**: selection is now expressed/round-tripped on the
+   stream by the IME; consolidating every gesture into one `SelectionController`
+   is still open (tap/pan/shift-click/mouse-drag already funnel through
+   `controller.setSelection`).
+4. ✅ **IME on the stream**: `updateEditingValue` / `updateEditingValueWithDeltas`
+   map deltas through `DocumentText`; the cross-block special-cases are gone —
+   deleting a separator merges blocks, inserting a newline splits one, natively.
+5. ⬜ **Tables & code as regions**: still open. Today code blocks are read-only
+   `RichText` (not an editor) and table cells use `TextField`s that commit
+   through the **unified** controller/undo; selection can't yet *enter* a cell.
+6. ✅ **Open block set**: `CustomBlockNode` + `BlockRegistry` render extension
+   point (`block_registry.dart`). *Decode/encode registration builds on the same
+   seam and is still open.*
 
-The end state: **one IME, one selection, one undo, one clipboard, one document**
-— with Markdown still the canonical form and no WebView/JavaScript.
+Status: the **invisible architecture is unified** — one IME, one selection
+coordinate system, one identity scheme, one document, one open block model, with
+Markdown canonical and no WebView/JavaScript. The remaining open items (steps 3
+consolidation, 5 tables/code-as-stream, fractional ordering, decode/encode
+registration) are larger rendering/refactor efforts tracked here.
