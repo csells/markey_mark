@@ -39,7 +39,10 @@ class _EditorPageState extends State<EditorPage> {
   @override
   Widget build(BuildContext context) => Scaffold(
         appBar: AppBar(title: const Text('markey_mark')),
-        body: MarkdownEditor(controller: controller),
+        body: MarkdownEditor(
+          controller: controller,
+          placeholder: 'Start writing…', // shown while the document is empty
+        ),
       );
 }
 ```

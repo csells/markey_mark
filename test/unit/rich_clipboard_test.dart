@@ -100,6 +100,20 @@ void main() {
       c.dispose();
     });
 
+    test('pastePlain inserts literally without interpreting Markdown', () async {
+      final c = MarkdownEditorController();
+      final id = c.document.nodes.first.id;
+      c.setSelection(DocumentSelection.collapsed(DocumentPosition.text(id, 0)));
+      final bridge = FakeClipboardBridge()
+        ..stored = const ClipboardPayload(
+            markdown: '**not bold**', plainText: '**not bold**');
+      await c.pastePlain(bridge: bridge);
+      final node = c.document.nodes.first as TextBlockNode;
+      expect(node.delta.toPlainText(), '**not bold**');
+      expect(node.delta.isFormatted(0, node.delta.length, 'bold'), isFalse);
+      c.dispose();
+    });
+
     test('paste falls back to plain text when no markdown flavor', () async {
       final c = MarkdownEditorController();
       final id = c.document.nodes.first.id;

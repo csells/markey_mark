@@ -43,6 +43,7 @@ class MarkdownEditor extends StatefulWidget {
     this.onChanged,
     this.clipboard = const SystemClipboardBridge(),
     this.enableDrop = true,
+    this.placeholder,
   });
 
   final MarkdownEditorController controller;
@@ -70,6 +71,9 @@ class MarkdownEditor extends StatefulWidget {
   /// `super_drag_and_drop`, no JavaScript). On by default; read-only editors
   /// never accept drops.
   final bool enableDrop;
+
+  /// Hint text shown over an empty document until the user types.
+  final String? placeholder;
 
   @override
   State<MarkdownEditor> createState() => _MarkdownEditorState();
@@ -864,6 +868,21 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
                 ),
               ),
               ),
+              if (widget.placeholder != null && _c.document.isEmpty)
+                Positioned(
+                  left: style.padding.left + (widget.readOnly ? 0 : 24),
+                  top: style.padding.top,
+                  child: IgnorePointer(
+                    child: Text(
+                      widget.placeholder!,
+                      key: const Key('markey_placeholder'),
+                      style: style.baseTextStyle.copyWith(
+                        color: style.baseTextStyle.color?.withValues(alpha: 0.4) ??
+                            style.caretColor.withValues(alpha: 0.4),
+                      ),
+                    ),
+                  ),
+                ),
               if (slashQuery != null)
                 Positioned(
                   left: style.padding.left,
@@ -1296,6 +1315,7 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
       cmd(LogicalKeyboardKey.keyZ, shift: true): const _RedoIntent(),
       cmd(LogicalKeyboardKey.keyF): const _FindIntent(),
       cmd(LogicalKeyboardKey.keyV): const _PasteIntent(),
+      cmd(LogicalKeyboardKey.keyV, shift: true): const _PastePlainIntent(),
       cmd(LogicalKeyboardKey.keyC): const _CopyIntent(),
       cmd(LogicalKeyboardKey.keyX): const _CutIntent(),
       cmd(LogicalKeyboardKey.keyA): const _SelectAllIntent(),
@@ -1346,6 +1366,10 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
         }),
         _PasteIntent: CallbackAction<_PasteIntent>(onInvoke: (_) {
           _handlePaste();
+          return null;
+        }),
+        _PastePlainIntent: CallbackAction<_PastePlainIntent>(onInvoke: (_) {
+          if (!widget.readOnly) _c.pastePlain(bridge: widget.clipboard);
           return null;
         }),
         _SelectAllIntent: CallbackAction<_SelectAllIntent>(onInvoke: (_) {
@@ -1400,6 +1424,10 @@ class _MoveBlockIntent extends Intent {
 
 class _PasteIntent extends Intent {
   const _PasteIntent();
+}
+
+class _PastePlainIntent extends Intent {
+  const _PastePlainIntent();
 }
 
 class _SelectAllIntent extends Intent {

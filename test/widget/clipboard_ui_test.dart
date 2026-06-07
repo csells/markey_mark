@@ -99,6 +99,27 @@ void main() {
     await teardown(tester);
   });
 
+  testWidgets('Ctrl+Shift+V pastes as plain text (no Markdown parsing)',
+      (tester) async {
+    final bridge = FakeClipboardBridge()
+      ..stored = const ClipboardPayload(markdown: '**x**', plainText: '**x**');
+    final c = await pump(tester, '', bridge);
+    c.setSelection(DocumentSelection.collapsed(
+        DocumentPosition.text(c.document.nodes.first.id, 0)));
+    await tester.pump();
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.control);
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.shift);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyV);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.shift);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.control);
+    await tester.pump();
+    await tester.pump();
+    final node = c.document.nodes.first as TextBlockNode;
+    expect(node.delta.toPlainText(), '**x**');
+    expect(node.delta.isFormatted(0, node.delta.length, 'bold'), isFalse);
+    await teardown(tester);
+  });
+
   testWidgets('default SystemClipboardBridge round-trips via the platform',
       (tester) async {
     // Mock the platform clipboard so the real SystemClipboardBridge works.

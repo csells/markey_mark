@@ -623,6 +623,21 @@ class MarkdownEditorController extends ChangeNotifier {
     if (md != null && md.isNotEmpty) pasteMarkdown(md);
   }
 
+  /// Pastes the clipboard's text **literally** (no Markdown interpretation, no
+  /// input rules) at the caret — "paste as plain text".
+  Future<void> pastePlain(
+      {ClipboardBridge bridge = const SystemClipboardBridge()}) async {
+    final payload = await bridge.read();
+    if (payload == null) return;
+    final text = (payload.plainText != null && payload.plainText!.isNotEmpty)
+        ? payload.plainText
+        : payload.markdown;
+    if (text == null || text.isEmpty) return;
+    _canRevertRule = false;
+    final txn = EditCommands.insertText(document, selection, text);
+    if (txn != null) _editor.apply(txn);
+  }
+
   /// The slice of the document covered by the current selection, as a new
   /// [Document], or null when nothing is selected.
   Document? _selectionSubDocument() {

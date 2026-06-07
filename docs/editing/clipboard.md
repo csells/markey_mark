@@ -8,6 +8,7 @@ truth.
 | <kbd>Ctrl/Cmd</kbd>+<kbd>C</kbd> | Copy the selection |
 | <kbd>Ctrl/Cmd</kbd>+<kbd>X</kbd> | Cut the selection |
 | <kbd>Ctrl/Cmd</kbd>+<kbd>V</kbd> | Smart-paste (parses Markdown structure) |
+| <kbd>Ctrl/Cmd</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd> | Paste as plain text (no Markdown parsing) |
 
 Copy/cut place three flavors on the clipboard:
 
@@ -19,6 +20,11 @@ Copy/cut place three flavors on the clipboard:
 Paste prefers the Markdown flavor and parses it into formatted blocks, falling
 back to plain text. It replaces the current selection (including
 [cross-block](keyboard-shortcuts.md#cross-block-selection) ones).
+
+**Paste as plain text** (<kbd>Ctrl/Cmd</kbd>+<kbd>Shift</kbd>+<kbd>V</kbd>, or
+`controller.pastePlain()`) inserts the clipboard text *literally* — no Markdown
+interpretation and no input rules — so `**x**` stays as the five characters
+`**x**`.
 
 ## Choosing a clipboard backend
 
