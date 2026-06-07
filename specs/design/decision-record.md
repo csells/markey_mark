@@ -172,6 +172,23 @@ intra-line offsets shift, so we map the caret via (block id, intra-block offset)
 
 ---
 
+## ADR-008 — One editor, not four: a single document text stream
+
+**Decision.** The whole document projects to **one flat text stream**; IME, selection,
+clipboard, and undo all address it by **global offset**, mapped to `(nodeId, localOffset)`
+via a bidirectional `DocumentText` map. Table cells, code blocks, and source mode stop
+being separate `TextField`s — they are **regions/projections of the same stream**. Node
+ids become **stable and collision-free** (not a global counter), and the closed block set
+becomes an open **`BlockSpec` registry**. See §13 (`unified-editing-surface.md`).
+
+**Why.** The per-block IME could not represent cross-block selection (special-cased),
+selection had several racing authorities, the four surfaces diverged in undo/clipboard
+behavior, and global-counter ids collide across peers (breaking collaboration/persistence).
+A single stream + mapping collapses all of these into one authority while keeping Markdown
+canonical and the core native (no WebView/JS).
+
+---
+
 ## Status summary
 
 | ADR | Decision | Status |
@@ -183,3 +200,4 @@ intra-line offsets shift, so we map the caret via (block id, intra-block offset)
 | 005 | Mermaid optional & pluggable | **Adopted** |
 | 006 | Undoable input rules | **Adopted** |
 | 007 | Dual-mode over single source of truth | **Adopted** |
+| 008 | One editor: single document text stream + stable ids + block registry | **Adopted** |
