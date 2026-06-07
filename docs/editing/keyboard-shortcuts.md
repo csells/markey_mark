@@ -17,9 +17,11 @@ On mobile, the soft keyboard / IME drives input; selection uses touch gestures.
 
 ## Cross-block selection
 
-A selection can span multiple blocks. Create one with <kbd>Ctrl/Cmd</kbd>+<kbd>A</kbd>
-(whole document) or <kbd>Shift</kbd>+click (from the caret to where you click —
-even in another block). Then:
+A selection can span multiple blocks. Create one by **dragging with the mouse**
+(or stylus) across blocks, with <kbd>Ctrl/Cmd</kbd>+<kbd>A</kbd> (whole document),
+or with <kbd>Shift</kbd>+click (from the caret to where you click — even in
+another block). A mouse drag freezes the scroll view for the duration so it
+selects rather than scrolls; touch drags still scroll. Then:
 
 - **Type** to replace the entire selection with the typed text.
 - **Backspace** / **Delete** to remove it, merging the surviving ends of the

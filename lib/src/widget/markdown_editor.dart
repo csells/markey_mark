@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
@@ -95,6 +96,12 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
 
   /// Right-click / long-press context menu (native AdaptiveTextSelectionToolbar).
   final ContextMenuController _contextMenu = ContextMenuController();
+
+  /// True while a primary mouse button is held for a text drag-selection. While
+  /// set, the document scroll view is frozen so the drag selects (across blocks)
+  /// instead of scrolling.
+  bool _mouseSelecting = false;
+  DocumentPosition? _mouseAnchor;
 
   /// Native code highlighter for code blocks (no WebView/JS).
   final CodeHighlighter _highlighter = const DefaultCodeHighlighter();
@@ -572,6 +579,43 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
     if (_contextMenu.isShown) _contextMenu.remove();
   }
 
+  // ── Mouse drag-selection (coexists with scroll) ──────────────────────────
+  // A precise pointer (mouse/stylus) drag selects text — possibly across
+  // blocks — while the scroll view is frozen for the drag. Touch keeps
+  // scrolling (use shift+click / select-all to make a cross-block selection).
+
+  bool _isPreciseDrag(PointerEvent e) =>
+      (e.kind == PointerDeviceKind.mouse ||
+          e.kind == PointerDeviceKind.stylus) &&
+      (e.buttons & kPrimaryButton) != 0;
+
+  void _onMousePointerDown(PointerDownEvent e) {
+    if (widget.readOnly || !_isPreciseDrag(e)) return;
+    final hit = _blockAtGlobal(e.position);
+    if (hit == null) return;
+    _focusNode.requestFocus();
+    final anchor = DocumentPosition.text(hit.$1, hit.$2);
+    _mouseAnchor = anchor;
+    setState(() => _mouseSelecting = true);
+    _c.setSelection(DocumentSelection.collapsed(anchor));
+  }
+
+  void _onMousePointerMove(PointerMoveEvent e) {
+    if (!_mouseSelecting || _mouseAnchor == null) return;
+    final hit = _blockAtGlobal(e.position);
+    if (hit == null) return;
+    _c.setSelection(DocumentSelection(
+      base: _mouseAnchor!,
+      extent: DocumentPosition.text(hit.$1, hit.$2),
+    ));
+  }
+
+  void _onMousePointerUp(PointerEvent e) {
+    if (!_mouseSelecting) return;
+    setState(() => _mouseSelecting = false);
+    _mouseAnchor = null;
+  }
+
   Future<void> _handleCut() async {
     if (widget.readOnly) return;
     await _c.cut(bridge: widget.clipboard);
@@ -755,12 +799,20 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
           focusNode: _focusNode,
           child: Stack(
             children: [
-              GestureDetector(
+              Listener(
+                onPointerDown: _onMousePointerDown,
+                onPointerMove: _onMousePointerMove,
+                onPointerUp: _onMousePointerUp,
+                onPointerCancel: _onMousePointerUp,
+                child: GestureDetector(
                 behavior: HitTestBehavior.translucent,
                 onTap: _focusNode.requestFocus,
                 onSecondaryTapDown: (d) => _showContextMenu(d.globalPosition),
                 onLongPressStart: (d) => _showContextMenu(d.globalPosition),
                 child: ListView.separated(
+                  physics: _mouseSelecting
+                      ? const NeverScrollableScrollPhysics()
+                      : null,
                   padding: style.padding,
                   itemCount: _c.document.nodes.length,
                   separatorBuilder: (_, __) =>
@@ -804,6 +856,7 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
                     return const SizedBox.shrink();
                   },
                 ),
+              ),
               ),
               if (slashQuery != null)
                 Positioned(
@@ -1198,8 +1251,16 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTapDown: (d) => _placeCaret(node, d.localPosition, width),
-          onPanStart: (d) => _placeCaret(node, d.localPosition, width),
-          onPanUpdate: (d) => _extendSelectionGlobal(node, d, width),
+          // While a precise-pointer drag is in progress the root Listener owns
+          // selection (across blocks); don't let the per-block pan clobber it.
+          onPanStart: (d) {
+            if (_mouseSelecting) return;
+            _placeCaret(node, d.localPosition, width);
+          },
+          onPanUpdate: (d) {
+            if (_mouseSelecting) return;
+            _extendSelectionGlobal(node, d, width);
+          },
           child: CustomPaint(
             key: _paintKeyFor(node.id),
             size: Size(width, height),

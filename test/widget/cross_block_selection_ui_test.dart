@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -91,6 +92,32 @@ void main() {
     await tester.tapAt(
         tester.getCenter(find.byKey(ValueKey('markey-block-$lastId'))));
     await tester.sendKeyUpEvent(LogicalKeyboardKey.shift);
+    await tester.pump();
+
+    final sel = c.selection!;
+    expect(sel.base.nodeId, firstId);
+    expect(sel.extent.nodeId, lastId);
+    expect(sel.isCollapsed, isFalse);
+    await teardown(tester);
+  });
+
+  testWidgets('mouse drag from one block into another selects across blocks',
+      (tester) async {
+    final c = await pump(tester, 'hello\n\nworld');
+    final firstId = c.document.nodes.first.id;
+    final lastId = c.document.nodes.last.id;
+    final start =
+        tester.getTopLeft(find.byKey(ValueKey('markey-block-$firstId'))) +
+            const Offset(4, 6);
+    final end =
+        tester.getBottomLeft(find.byKey(ValueKey('markey-block-$lastId'))) +
+            const Offset(30, -6);
+
+    final gesture = await tester.startGesture(start, kind: PointerDeviceKind.mouse);
+    await tester.pump();
+    await gesture.moveTo(end);
+    await tester.pump();
+    await gesture.up();
     await tester.pump();
 
     final sel = c.selection!;
