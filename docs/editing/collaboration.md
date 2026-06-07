@@ -14,8 +14,28 @@ session.dispose(); // stop syncing
 
 A network transport plugs in here by serializing the transactions between processes.
 
-!!! note
-    This is the in-process foundation. Non-conflicting edits (different blocks, or turn-taking)
-    stay consistent; genuinely **concurrent conflicting** edits need operational transform or a
-    CRDT layered on the same op log — the architecture is designed to allow that without
-    changing the editing core.
+## Concurrent conflict resolution (operational transform)
+
+Genuinely *concurrent* edits — two peers changing the document before they've
+seen each other's change — are reconciled with operational transformation over
+the same operation log. `transformOperation` / `transformTransaction` rewrite a
+remote transaction so it applies cleanly after local concurrent edits, and both
+peers converge (the TP1 property):
+
+```dart
+// Each peer applied its own edit; now reconcile the other's against it.
+a.applyRemote(transformTransaction(remoteFromB, myLocalA, tieBreak: false));
+b.applyRemote(transformTransaction(remoteFromA, myLocalB, tieBreak: true));
+// a.markdown == b.markdown
+```
+
+- **Structural concurrency** (inserting/deleting different blocks) is reconciled
+  by shifting block indices.
+- **Same-block conflicts** (two peers editing one block at once) are resolved by
+  a deterministic `tieBreak` — derive it from a stable site id so the same side
+  wins on every peer.
+
+A networked transport drives this by tracking which transactions each peer has
+seen (a version vector or a client-server order) and calling
+`transformTransaction` before applying. The transforms themselves are pure and
+fully tested for convergence.
