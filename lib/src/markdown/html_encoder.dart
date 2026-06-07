@@ -106,6 +106,9 @@ class HtmlEncoder {
     if (node is MermaidNode) {
       return '<pre class="mermaid">${_escape(node.source)}</pre>';
     }
+    if (node is HtmlBlockNode) {
+      return node.html; // already HTML — emit verbatim
+    }
     if (node is TableNode) return _renderTable(node);
     if (node is FrontMatterNode) return null; // metadata, not body content
     if (node is TextBlockNode) {

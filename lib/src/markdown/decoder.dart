@@ -44,8 +44,14 @@ class MarkdownDecoder {
 
   List<Node> _expand(md.Node node) {
     if (node is md.Text) {
-      final text = node.text.trim();
+      final raw = node.text;
+      final text = raw.trim();
       if (text.isEmpty) return const [];
+      // A top-level raw text node is a raw HTML block (the parser runs with
+      // encodeHtml:false); preserve it verbatim so it never gets re-escaped.
+      if (text.startsWith('<')) {
+        return [HtmlBlockNode(html: raw.trimRight())];
+      }
       return [TextBlockNode.paragraph(delta: Delta.text(text))];
     }
     if (node is! md.Element) return const [];

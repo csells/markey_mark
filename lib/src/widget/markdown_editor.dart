@@ -826,6 +826,7 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
 
   /// Builds the rendered widget for a single block (without the reorder handle).
   Widget _blockContent(Node node, EditorStyle style) {
+    if (node is HtmlBlockNode) return _buildHtmlBlock(node, style);
     if (node is CodeBlockNode) return _buildCodeBlock(node, style);
     if (node is HorizontalRuleNode) return _buildHr(node, style);
     if (node is ImageNode) {
@@ -1105,6 +1106,38 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
 
   Widget _marker(String text, EditorStyle style) =>
       Text(text, style: style.baseTextStyle);
+
+  /// Raw HTML can't be rendered natively (no WebView/JS), so it's shown as
+  /// source in a labelled card — preserved verbatim, never executed.
+  Widget _buildHtmlBlock(HtmlBlockNode node, EditorStyle style) {
+    final mono = style.codeTextStyle.copyWith(backgroundColor: null);
+    final accent = style.caretColor;
+    return Container(
+      key: ValueKey('markey-html-${node.id}'),
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: style.codeTextStyle.backgroundColor,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(color: accent.withValues(alpha: 0.25)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(mainAxisSize: MainAxisSize.min, children: [
+            Icon(Icons.code, size: 16, color: accent.withValues(alpha: 0.7)),
+            const SizedBox(width: 6),
+            Text('html',
+                style: mono.copyWith(
+                    fontSize: (mono.fontSize ?? 14) * 0.8,
+                    color: accent.withValues(alpha: 0.7))),
+          ]),
+          const SizedBox(height: 6),
+          Text(node.html, style: mono),
+        ],
+      ),
+    );
+  }
 
   Widget _buildHr(HorizontalRuleNode node, EditorStyle style) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 8),

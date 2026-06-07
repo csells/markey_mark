@@ -145,12 +145,17 @@ class MarkdownEncoder {
     if (node is FrontMatterNode) {
       return '---\n${node.yaml}\n---';
     }
+    if (node is HtmlBlockNode) {
+      return node.html; // verbatim — never escaped
+    }
     if (node is TextBlockNode) {
       final inline = _encodeDelta(node.delta);
       switch (node.type) {
         case BlockType.heading:
           final level = (node.level ?? 1).clamp(1, 6);
-          return '${'#' * level} $inline';
+          // ATX headings are single-line; flatten any soft breaks (e.g. from a
+          // multi-line setext heading) to spaces.
+          return '${'#' * level} ${inline.replaceAll('\n', ' ')}';
         case BlockType.bulletedListItem:
           return '$leading- $inline';
         case BlockType.numberedListItem:
@@ -280,12 +285,34 @@ class MarkdownEncoder {
         open.add(want[i]);
       }
 
-      var text = isCode ? '`${run.text}`' : _escapeText(run.text);
+      var text = isCode ? _encodeCodeSpan(run.text) : _escapeText(run.text);
       if (link != null) text = '[$text]($link)';
       buf.write(text);
     }
     closeFrom(0);
     return buf.toString();
+  }
+
+  /// Encodes inline code with CommonMark-correct backtick fencing: the fence is
+  /// one longer than the longest backtick run in the content, with space padding
+  /// when the content begins/ends with a backtick (or is all spaces).
+  static String _encodeCodeSpan(String content) {
+    var longest = 0, current = 0;
+    for (final unit in content.codeUnits) {
+      if (unit == 0x60) {
+        current++;
+        if (current > longest) longest = current;
+      } else {
+        current = 0;
+      }
+    }
+    final fence = '`' * (longest + 1);
+    // Pad only to separate a leading/trailing backtick from the fence; an
+    // all-spaces span needs no padding (and padding it would grow each pass).
+    final needsPad =
+        content.startsWith('`') || content.endsWith('`');
+    final inner = needsPad ? ' $content ' : content;
+    return '$fence$inner$fence';
   }
 
   static final RegExp _escapeChars = RegExp(r'([\\`*_~\[\]$])');

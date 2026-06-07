@@ -52,6 +52,21 @@ void main() {
     expect(items[1].indent, 1, reason: 'serialized as: $md');
   });
 
+  test('raw HTML block is preserved verbatim (not re-escaped)', () {
+    const src = '<div class="x">\n*not emphasis*\n</div>';
+    final doc = Markdown.parse(src);
+    expect(doc.nodes.single, isA<HtmlBlockNode>());
+    final out = Markdown.serialize(doc);
+    expect(out, src);
+    // Stable: no escalating backslash escaping across passes.
+    expect(Markdown.serialize(Markdown.parse(out)), out);
+  });
+
+  test('raw HTML block exports to HTML verbatim', () {
+    final doc = Markdown.parse('<div><span>hi</span></div>');
+    expect(Markdown.toHtml(doc), '<div><span>hi</span></div>');
+  });
+
   test('inline marks inside a table cell survive a round trip', () {
     final doc = Document([
       TableNode(

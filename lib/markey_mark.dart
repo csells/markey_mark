@@ -13,6 +13,7 @@ export 'src/model/node.dart'
         Node,
         TextBlockNode,
         CodeBlockNode,
+        HtmlBlockNode,
         HorizontalRuleNode,
         ImageNode,
         MathBlockNode,

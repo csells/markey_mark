@@ -42,6 +42,7 @@ abstract final class BlockType {
   static const String frontMatter = 'front_matter';
   static const String definitionTerm = 'definition_term';
   static const String definitionDesc = 'definition_desc';
+  static const String htmlBlock = 'html_block';
 }
 
 /// Column alignment for a GFM table.
@@ -259,6 +260,34 @@ final class CodeBlockNode extends Node {
 
   @override
   String toString() => 'CodeBlockNode($id, ${language ?? 'plain'})';
+}
+
+/// A raw HTML block, preserved verbatim so it round-trips losslessly (the model
+/// doesn't interpret HTML — per the no-WebView/no-JS constraint it's shown as
+/// source — but it is never mangled or re-escaped).
+@immutable
+final class HtmlBlockNode extends Node {
+  HtmlBlockNode({String? id, required this.html, Attributes? attributes})
+      : super(id: id ?? NodeIds.next(), attributes: normalizeAttributes(attributes));
+
+  final String html;
+
+  @override
+  String get type => BlockType.htmlBlock;
+
+  @override
+  Node copyWith({Attributes? attributes}) =>
+      HtmlBlockNode(id: id, html: html, attributes: attributes ?? this.attributes);
+
+  @override
+  bool operator ==(Object other) =>
+      other is HtmlBlockNode && other.id == id && other.html == html;
+
+  @override
+  int get hashCode => Object.hash(id, html);
+
+  @override
+  String toString() => 'HtmlBlockNode($id)';
 }
 
 /// An image block: `![alt](url "title")`. Atomic.
