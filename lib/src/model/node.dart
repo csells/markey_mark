@@ -10,16 +10,29 @@ import 'delta.dart';
 /// Uses a monotonically increasing counter combined with random bits so ids
 /// are unique within and across documents without pulling in a uuid
 /// dependency. Ids are opaque; never parse them.
+/// Generates collision-free node ids for one *site* (a process/peer). Ids are
+/// `<site>_<counter>`: the per-site random prefix guarantees that two peers (or
+/// two documents) never mint the same id — the precondition for collaboration
+/// convergence and stable references (§13.4 / ADR-008). Ids are unique and
+/// stable within a session.
+class NodeIdGenerator {
+  NodeIdGenerator({String? site}) : site = site ?? _randomSite();
+
+  final String site;
+  int _counter = 0;
+
+  String next() => '${site}_${(_counter++).toRadixString(36)}';
+
+  static final Random _rng = Random();
+  static String _randomSite() =>
+      _rng.nextInt(1 << 32).toRadixString(36).padLeft(7, '0');
+}
+
+/// The default, process-wide id generator (one site per process).
 final class NodeIds {
   NodeIds._();
-  static final Random _rng = Random();
-  static int _counter = 0;
-
-  static String next() {
-    _counter++;
-    final r = _rng.nextInt(1 << 32).toRadixString(36);
-    return 'n${_counter.toRadixString(36)}_$r';
-  }
+  static final NodeIdGenerator _default = NodeIdGenerator();
+  static String next() => _default.next();
 }
 
 /// Built-in block node type strings. Block type is stored as the node [Node.type]

@@ -22,7 +22,8 @@ export 'src/model/node.dart'
         MermaidNode,
         FrontMatterNode,
         BlockType,
-        NodeIds;
+        NodeIds,
+        NodeIdGenerator;
 export 'src/model/document.dart' show Document;
 export 'src/model/document_text.dart' show DocumentText;
 export 'src/model/position.dart'

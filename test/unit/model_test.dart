@@ -12,6 +12,27 @@ void main() {
       final ids = {for (var i = 0; i < 1000; i++) NodeIds.next()};
       expect(ids.length, 1000);
     });
+
+    test('two sites (peers/processes) never collide', () {
+      final a = NodeIdGenerator(site: 'aaa');
+      final b = NodeIdGenerator(site: 'bbb');
+      final idsA = {for (var i = 0; i < 1000; i++) a.next()};
+      final idsB = {for (var i = 0; i < 1000; i++) b.next()};
+      expect(idsA.length, 1000);
+      expect(idsA.intersection(idsB), isEmpty);
+    });
+
+    test('a generator with no explicit site gets a random one (disjoint)', () {
+      final a = NodeIdGenerator();
+      final b = NodeIdGenerator();
+      expect(a.site, isNot(b.site));
+      expect(a.next(), isNot(b.next()));
+    });
+
+    test('ids carry their site prefix', () {
+      final g = NodeIdGenerator(site: 'site1');
+      expect(g.next().startsWith('site1_'), isTrue);
+    });
   });
 
   group('TextBlockNode', () {
