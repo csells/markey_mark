@@ -32,11 +32,13 @@ The whole operation is a single undo step. Programmatically: `controller.selectA
 
 ## Block reordering
 
-| Shortcut | Action |
-|----------|--------|
-| <kbd>Alt</kbd>+<kbd>↑</kbd> / <kbd>Alt</kbd>+<kbd>↓</kbd> | Move the current block up / down |
+| Action | How |
+|--------|-----|
+| Move the current block up / down | <kbd>Alt</kbd>+<kbd>↑</kbd> / <kbd>Alt</kbd>+<kbd>↓</kbd> |
+| Move a block anywhere | Drag its **handle** (the grip that appears in the left gutter on hover) onto another block |
 
-Also available programmatically: `controller.moveBlockUp(nodeId)` / `moveBlockDown(nodeId)`.
+Also available programmatically: `controller.moveBlockUp(nodeId)` /
+`moveBlockDown(nodeId)`, and `controller.reorderBlock(fromIndex, toIndex)`.
 
 ## Paste
 

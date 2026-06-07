@@ -788,6 +788,38 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
     );
   }
 
+  /// Builds the rendered widget for a single block (without the reorder handle).
+  Widget _blockContent(Node node, EditorStyle style) {
+    if (node is CodeBlockNode) return _buildCodeBlock(node, style);
+    if (node is HorizontalRuleNode) return _buildHr(node, style);
+    if (node is ImageNode) {
+      return Semantics(
+        image: true,
+        excludeSemantics: true,
+        label: (node.alt == null || node.alt!.isEmpty) ? 'image' : node.alt,
+        child: _buildImage(node, style),
+      );
+    }
+    if (node is MathBlockNode) return _buildMath(node, style);
+    if (node is TableNode) {
+      return widget.readOnly
+          ? _buildTable(node, style)
+          : _EditableTable(node: node, style: style, controller: _c);
+    }
+    if (node is MermaidNode) {
+      return widget.diagramRenderer.build(context, node, style);
+    }
+    if (node is FrontMatterNode) return _buildFrontMatter(node, style);
+    if (node is TextBlockNode) {
+      return Semantics(
+        header: node.type == BlockType.heading,
+        label: node.delta.toPlainText(),
+        child: _buildBlock(node, style),
+      );
+    }
+    return const SizedBox.shrink();
+  }
+
   Widget _buildWysiwyg() {
     final style = _resolveStyle();
     final slashQuery = _slashSuppressed ? null : _activeSlashQuery();
@@ -819,41 +851,15 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
                       SizedBox(height: style.blockSpacing),
                   itemBuilder: (context, index) {
                     final node = _c.document.nodes[index];
-                    if (node is CodeBlockNode) {
-                      return _buildCodeBlock(node, style);
-                    }
-                    if (node is HorizontalRuleNode) return _buildHr(node, style);
-                    if (node is ImageNode) {
-                      return Semantics(
-                        image: true,
-                        excludeSemantics: true,
-                        label: (node.alt == null || node.alt!.isEmpty)
-                            ? 'image'
-                            : node.alt,
-                        child: _buildImage(node, style),
-                      );
-                    }
-                    if (node is MathBlockNode) return _buildMath(node, style);
-                    if (node is TableNode) {
-                      return widget.readOnly
-                          ? _buildTable(node, style)
-                          : _EditableTable(
-                              node: node, style: style, controller: _c);
-                    }
-                    if (node is MermaidNode) {
-                      return widget.diagramRenderer.build(context, node, style);
-                    }
-                    if (node is FrontMatterNode) {
-                      return _buildFrontMatter(node, style);
-                    }
-                    if (node is TextBlockNode) {
-                      return Semantics(
-                        header: node.type == BlockType.heading,
-                        label: node.delta.toPlainText(),
-                        child: _buildBlock(node, style),
-                      );
-                    }
-                    return const SizedBox.shrink();
+                    final content = _blockContent(node, style);
+                    if (widget.readOnly) return content;
+                    return _ReorderableBlock(
+                      index: index,
+                      handleKey: ValueKey('markey-drag-${node.id}'),
+                      onReorder: _c.reorderBlock,
+                      accent: style.caretColor,
+                      child: content,
+                    );
                   },
                 ),
               ),
@@ -1438,6 +1444,81 @@ class _CachedLayout {
   final Delta delta;
   final TextPainter painter;
   final int styleVersion;
+}
+
+/// Wraps a block with a hover-revealed drag handle (a [Draggable] of the block
+/// index) and makes the block a [DragTarget], so blocks can be reordered by
+/// dragging the handle. The handle sits in a narrow left gutter, outside the
+/// block's text-hit area, so it doesn't interfere with caret/selection.
+class _ReorderableBlock extends StatefulWidget {
+  const _ReorderableBlock({
+    required this.index,
+    required this.handleKey,
+    required this.onReorder,
+    required this.accent,
+    required this.child,
+  });
+
+  final int index;
+  final Key handleKey;
+  final void Function(int from, int to) onReorder;
+  final Color accent;
+  final Widget child;
+
+  @override
+  State<_ReorderableBlock> createState() => _ReorderableBlockState();
+}
+
+class _ReorderableBlockState extends State<_ReorderableBlock> {
+  bool _hovering = false;
+  bool _dragOver = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final handle = MouseRegion(
+      cursor: SystemMouseCursors.grab,
+      onEnter: (_) => setState(() => _hovering = true),
+      onExit: (_) => setState(() => _hovering = false),
+      child: Draggable<int>(
+        key: widget.handleKey,
+        data: widget.index,
+        affinity: Axis.vertical,
+        feedback: Material(
+          color: Colors.transparent,
+          child: Icon(Icons.drag_indicator, color: widget.accent),
+        ),
+        child: Opacity(
+          opacity: _hovering ? 0.7 : 0.25,
+          child: Icon(Icons.drag_indicator,
+              size: 18, color: widget.accent.withValues(alpha: 0.8)),
+        ),
+      ),
+    );
+
+    return DragTarget<int>(
+      onWillAcceptWithDetails: (d) => d.data != widget.index,
+      onAcceptWithDetails: (d) => widget.onReorder(d.data, widget.index),
+      onMove: (_) => setState(() => _dragOver = true),
+      onLeave: (_) => setState(() => _dragOver = false),
+      builder: (context, _, __) => Container(
+        decoration: _dragOver
+            ? BoxDecoration(
+                border: Border(
+                    top: BorderSide(color: widget.accent, width: 2)))
+            : null,
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(top: 2, right: 4),
+              child: SizedBox(width: 20, child: handle),
+            ),
+            Expanded(child: widget.child),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _BlockPainter extends CustomPainter {

@@ -391,6 +391,23 @@ class MarkdownEditorController extends ChangeNotifier {
   void moveBlockUp(String nodeId) => _moveBlock(nodeId, -1);
   void moveBlockDown(String nodeId) => _moveBlock(nodeId, 1);
 
+  /// Moves the block at index [from] so it lands at index [to] in the resulting
+  /// document (one undo unit). No-op for equal or out-of-range indices.
+  void reorderBlock(int from, int to) {
+    _canRevertRule = false;
+    final n = document.length;
+    if (from < 0 || from >= n || from == to) return;
+    final node = document.nodes[from];
+    // After removing [from], the destination index in the shrunken list.
+    final dest = to.clamp(0, n - 1);
+    _editor.apply(EditTransaction(
+      operations: [DeleteNodeOp(from, node), InsertNodeOp(dest, node)],
+      selectionBefore: selection,
+      selectionAfter: selection,
+      tag: 'reorder-block',
+    ));
+  }
+
   void _moveBlock(String nodeId, int dir) {
     _canRevertRule = false;
     final i = document.indexOfId(nodeId);
