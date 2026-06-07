@@ -36,13 +36,60 @@ class MarkdownEncoder {
   (String, Map<String, int>) convertWithOffsets(Document doc) {
     final buf = StringBuffer();
     final starts = <String, int>{};
+    // Content column (indent of children) per list-nesting level, so nested
+    // items are indented enough to nest under markers of any width.
+    final contentCol = <int>[];
+    // Canonical sequential numbering per ordered-list level, so re-parsing
+    // (which numbers by position) reproduces the same Markdown.
+    final orderedNum = <int, int>{};
     for (var i = 0; i < doc.nodes.length; i++) {
-      if (i > 0) buf.write(_separatorBetween(doc.nodes[i - 1], doc.nodes[i]));
-      starts[doc.nodes[i].id] = buf.length;
-      buf.write(_encodeBlock(doc.nodes[i], i > 0 ? doc.nodes[i - 1] : null));
+      final node = doc.nodes[i];
+      if (i > 0) buf.write(_separatorBetween(doc.nodes[i - 1], node));
+      var leading = '';
+      int? orderedOverride;
+      if (node is TextBlockNode && _isListItem(node.type)) {
+        final level = node.indent;
+        final lead = level == 0
+            ? 0
+            : (contentCol.length >= level
+                ? contentCol[level - 1]
+                : (contentCol.isEmpty ? 0 : contentCol.last));
+        leading = ' ' * lead;
+        if (contentCol.length > level) contentCol.length = level;
+        while (contentCol.length < level) {
+          contentCol.add(contentCol.isEmpty ? 2 : contentCol.last + 2);
+        }
+        contentCol.add(lead + _markerWidth(node));
+        orderedNum.removeWhere((lvl, _) => lvl > level); // deeper runs ended
+        if (node.type == BlockType.numberedListItem) {
+          orderedOverride =
+              orderedNum.containsKey(level) ? orderedNum[level]! + 1 : (node.number ?? 1);
+          orderedNum[level] = orderedOverride;
+        } else {
+          orderedNum.remove(level); // a bullet/task ends the ordered run here
+        }
+      } else {
+        contentCol.clear();
+        orderedNum.clear();
+      }
+      starts[node.id] = buf.length;
+      buf.write(
+          _encodeBlock(node, i > 0 ? doc.nodes[i - 1] : null, leading, orderedOverride));
     }
     return (buf.toString(), starts);
   }
+
+  static bool _isListItem(String type) =>
+      type == BlockType.bulletedListItem ||
+      type == BlockType.numberedListItem ||
+      type == BlockType.todoListItem;
+
+  // The *list marker* width for nesting (the checkbox in a task item is part of
+  // the content, so children nest under the `- `, i.e. width 2).
+  static int _markerWidth(TextBlockNode node) => switch (node.type) {
+        BlockType.numberedListItem => '${node.number ?? 1}. '.length,
+        _ => 2, // '- ' (bullets and task items)
+      };
 
   /// Tight separator (single newline) between items of the same list family or
   /// consecutive quote lines; a blank line between everything else.
@@ -74,7 +121,8 @@ class MarkdownEncoder {
     return false;
   }
 
-  String _encodeBlock(Node node, [Node? prev]) {
+  String _encodeBlock(Node node,
+      [Node? prev, String leading = '', int? orderedNumber]) {
     if (node is CodeBlockNode) {
       return '```${node.language ?? ''}\n${node.code}\n```';
     }
@@ -104,11 +152,11 @@ class MarkdownEncoder {
           final level = (node.level ?? 1).clamp(1, 6);
           return '${'#' * level} $inline';
         case BlockType.bulletedListItem:
-          return '${'  ' * node.indent}- $inline';
+          return '$leading- $inline';
         case BlockType.numberedListItem:
-          return '${'  ' * node.indent}${node.number ?? 1}. $inline';
+          return '$leading${orderedNumber ?? node.number ?? 1}. $inline';
         case BlockType.todoListItem:
-          return '${'  ' * node.indent}- [${(node.checked ?? false) ? 'x' : ' '}] $inline';
+          return '$leading- [${(node.checked ?? false) ? 'x' : ' '}] $inline';
         case BlockType.quote:
           final prefix = '> ' * (node.indent + 1);
           final callout = node.callout;
@@ -123,14 +171,35 @@ class MarkdownEncoder {
         case BlockType.footnoteDef:
           return '[^${node.footnoteLabel ?? ''}]: $inline';
         case BlockType.definitionTerm:
-          return inline;
+          return _escapeLeadingBlockMarker(inline);
         case BlockType.definitionDesc:
           return ': $inline';
         default:
-          return inline;
+          return _escapeLeadingBlockMarker(inline);
       }
     }
     return '';
+  }
+
+  // Block-start markers that the inline escaper (`_escapeText`) doesn't cover:
+  // ATX heading, blockquote, bullet/ordered list. A leading match would make a
+  // paragraph re-parse as that block, so escape the trigger character.
+  static final RegExp _leadingHeading = RegExp(r'^(#{1,6})(\s|$)');
+  static final RegExp _leadingBullet = RegExp(r'^([-+])(\s|$)');
+  static final RegExp _leadingOrdered = RegExp(r'^(\d+)([.)])(\s|$)');
+
+  String _escapeLeadingBlockMarker(String s) {
+    if (_leadingHeading.hasMatch(s) || s.startsWith('>') ||
+        _leadingBullet.hasMatch(s)) {
+      return '\\$s';
+    }
+    final m = _leadingOrdered.firstMatch(s);
+    if (m != null) {
+      // Escape the delimiter (`.`/`)`) so "1. x" → "1\. x".
+      final n = m.group(1)!;
+      return '$n\\${s.substring(n.length)}';
+    }
+    return s;
   }
 
   String _encodeTable(TableNode t) {
@@ -219,7 +288,7 @@ class MarkdownEncoder {
     return buf.toString();
   }
 
-  static final RegExp _escapeChars = RegExp(r'([\\`*_~\[\]])');
+  static final RegExp _escapeChars = RegExp(r'([\\`*_~\[\]$])');
 
   String _escapeText(String text) =>
       text.replaceAllMapped(_escapeChars, (m) => '\\${m[1]}');
