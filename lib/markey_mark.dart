@@ -24,6 +24,7 @@ export 'src/model/node.dart'
         BlockType,
         NodeIds;
 export 'src/model/document.dart' show Document;
+export 'src/model/document_text.dart' show DocumentText;
 export 'src/model/position.dart'
     show DocumentPosition, NodePosition, TextNodePosition, AtomicNodePosition;
 export 'src/model/selection.dart' show DocumentSelection;
