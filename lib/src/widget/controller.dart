@@ -166,16 +166,76 @@ class MarkdownEditorController extends ChangeNotifier {
     if (mode == _mode) return;
     if (mode == EditorMode.source) {
       _sourceText = Markdown.serialize(document);
+      final sel = selection;
+      sourceCaret = sel != null
+          ? markdownOffsetForPosition(sel.extent)
+          : _sourceText.length;
     } else {
       _editor.setDocument(Markdown.parse(_sourceText));
+      final pos = positionForMarkdownOffset(sourceCaret);
+      if (pos != null) _editor.setSelection(DocumentSelection.collapsed(pos));
     }
     _mode = mode;
     notifyListeners();
   }
 
+  /// The source-text caret offset, preserved across WYSIWYG⇄source toggles.
+  int sourceCaret = 0;
+
   /// Records in-progress source-mode edits so a later [toggleMode] re-parses
   /// the latest text.
   void updateSourceText(String value) => _sourceText = value;
+
+  /// The source-text caret offset corresponding to the current document
+  /// selection's extent (for caret preservation when switching to source mode).
+  int markdownOffsetForPosition(DocumentPosition pos) {
+    final (_, starts) = Markdown.serializeWithOffsets(document);
+    final start = starts[pos.nodeId];
+    if (start == null) return 0;
+    final node = document.nodeById(pos.nodeId);
+    final np = pos.nodePosition;
+    if (node is! TextBlockNode || np is! TextNodePosition) return start;
+    final full = Markdown.serialize(Document([node]));
+    final inlineFull = Markdown.deltaToInline(node.delta);
+    final prefix = full.length - inlineFull.length; // block marker length
+    final caret = np.offset.clamp(0, node.delta.length);
+    final toCaret = Markdown.deltaToInline(node.delta.slice(0, caret)).length;
+    return start + prefix + toCaret;
+  }
+
+  /// The document position corresponding to a source-text caret [offset] (for
+  /// caret preservation when switching back from source mode).
+  DocumentPosition? positionForMarkdownOffset(int offset) {
+    final (_, starts) = Markdown.serializeWithOffsets(document);
+    // The block whose start is the greatest one at or before [offset].
+    String? bestId;
+    var bestStart = -1;
+    starts.forEach((id, s) {
+      if (s <= offset && s > bestStart) {
+        bestStart = s;
+        bestId = id;
+      }
+    });
+    if (bestId == null) return null;
+    final node = document.nodeById(bestId!);
+    if (node is! TextBlockNode) {
+      return DocumentPosition.text(bestId!, 0);
+    }
+    final full = Markdown.serialize(Document([node]));
+    final inlineFull = Markdown.deltaToInline(node.delta);
+    final prefix = full.length - inlineFull.length;
+    final rem = (offset - bestStart - prefix).clamp(0, inlineFull.length);
+    // Invert deltaToInline: the largest caret whose encoded length fits in rem.
+    var caret = 0;
+    for (var c = 0; c <= node.delta.length; c++) {
+      if (Markdown.deltaToInline(node.delta.slice(0, c)).length <= rem) {
+        caret = c;
+      } else {
+        break;
+      }
+    }
+    return DocumentPosition.text(bestId!, caret);
+  }
 
   // ── Selection ────────────────────────────────────────────────────────────
 

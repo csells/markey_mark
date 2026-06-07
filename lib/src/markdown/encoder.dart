@@ -28,13 +28,20 @@ class MarkdownEncoder {
     InlineAttr.strike: '~~',
   };
 
-  String convert(Document doc) {
+  String convert(Document doc) => convertWithOffsets(doc).$1;
+
+  /// Like [convert], but also returns the start offset of each block's text in
+  /// the serialized output, keyed by node id (used to map a caret between the
+  /// WYSIWYG document and the raw source).
+  (String, Map<String, int>) convertWithOffsets(Document doc) {
     final buf = StringBuffer();
+    final starts = <String, int>{};
     for (var i = 0; i < doc.nodes.length; i++) {
       if (i > 0) buf.write(_separatorBetween(doc.nodes[i - 1], doc.nodes[i]));
+      starts[doc.nodes[i].id] = buf.length;
       buf.write(_encodeBlock(doc.nodes[i], i > 0 ? doc.nodes[i - 1] : null));
     }
-    return buf.toString();
+    return (buf.toString(), starts);
   }
 
   /// Tight separator (single newline) between items of the same list family or

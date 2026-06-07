@@ -107,6 +107,10 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
   bool _mouseSelecting = false;
   DocumentPosition? _mouseAnchor;
 
+  /// Tracks WYSIWYG⇄source transitions so the source caret can be restored once.
+  EditorMode? _lastMode;
+  bool _enterSourcePending = false;
+
   /// Native code highlighter for code blocks (no WebView/JS).
   final CodeHighlighter _highlighter = const DefaultCodeHighlighter();
 
@@ -134,7 +138,16 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
     _focusNode = widget.focusNode ?? FocusNode();
     _focusNode.addListener(_onFocusChanged);
     _lastDoc = _c.document;
+    _lastMode = _c.mode;
     _c.addListener(_onControllerChanged);
+    _sourceController.addListener(_onSourceSelectionChanged);
+  }
+
+  /// Keep the controller's preserved source caret in sync with the source field.
+  void _onSourceSelectionChanged() {
+    if (_c.mode != EditorMode.source) return;
+    final sel = _sourceController.selection;
+    if (sel.isValid) _c.sourceCaret = sel.baseOffset;
   }
 
   @override
@@ -149,6 +162,7 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
     _replaceController.dispose();
     _connection?.close();
     _hideContextMenu();
+    _sourceController.removeListener(_onSourceSelectionChanged);
     _disposeLayoutCache();
     super.dispose();
   }
@@ -160,6 +174,11 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
     if (widget.onChanged != null && !identical(_lastDoc, _c.document)) {
       _lastDoc = _c.document;
       widget.onChanged!(_c.markdown);
+    }
+    // On entering source mode, restore the caret once (see _buildSource).
+    if (_lastMode != _c.mode) {
+      if (_c.mode == EditorMode.source) _enterSourcePending = true;
+      _lastMode = _c.mode;
     }
     // Re-arm the slash menu once the `/` query is gone.
     if (_activeSlashQuery() == null) _slashSuppressed = false;
@@ -765,13 +784,20 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
   }
 
   Widget _buildSource() {
-    _sourceController.value = TextEditingValue(
-      text: _c.markdown,
-      selection: _sourceController.selection.isValid &&
-              _sourceController.selection.end <= _c.markdown.length
-          ? _sourceController.selection
-          : TextSelection.collapsed(offset: _c.markdown.length),
-    );
+    // On entering source mode, place the caret where it was in WYSIWYG.
+    final TextSelection selection;
+    if (_enterSourcePending) {
+      _enterSourcePending = false;
+      selection = TextSelection.collapsed(
+          offset: _c.sourceCaret.clamp(0, _c.markdown.length));
+    } else if (_sourceController.selection.isValid &&
+        _sourceController.selection.end <= _c.markdown.length) {
+      selection = _sourceController.selection;
+    } else {
+      selection = TextSelection.collapsed(offset: _c.markdown.length);
+    }
+    _sourceController.value =
+        TextEditingValue(text: _c.markdown, selection: selection);
     final style = _resolveStyle();
     return Padding(
       padding: style.padding,

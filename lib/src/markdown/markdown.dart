@@ -17,6 +17,11 @@ abstract final class Markdown {
   /// Serializes [document] to Markdown text.
   static String serialize(Document document) => _encoder.convert(document);
 
+  /// Serializes [document], also returning each block's start offset in the
+  /// output (keyed by node id).
+  static (String, Map<String, int>) serializeWithOffsets(Document document) =>
+      _encoder.convertWithOffsets(document);
+
   /// Serializes [document] to semantic HTML.
   static String toHtml(Document document) => _htmlEncoder.convert(document);
 
