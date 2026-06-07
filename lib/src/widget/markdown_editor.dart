@@ -93,6 +93,9 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
   GlobalKey _paintKeyFor(String id) =>
       _paintKeys.putIfAbsent(id, () => GlobalKey());
 
+  /// Right-click / long-press context menu (native AdaptiveTextSelectionToolbar).
+  final ContextMenuController _contextMenu = ContextMenuController();
+
   /// Native code highlighter for code blocks (no WebView/JS).
   final CodeHighlighter _highlighter = const DefaultCodeHighlighter();
 
@@ -134,6 +137,7 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
     _findController.dispose();
     _replaceController.dispose();
     _connection?.close();
+    _hideContextMenu();
     _disposeLayoutCache();
     super.dispose();
   }
@@ -516,6 +520,58 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
 
   Future<void> _handleCopy() => _c.copy(bridge: widget.clipboard);
 
+  /// Shows the native context menu (copy/cut/paste/select-all) at [globalPos],
+  /// with the items that apply to the current selection and edit mode.
+  void _showContextMenu(Offset globalPos) {
+    _focusNode.requestFocus();
+    final hasSelection =
+        _c.selection != null && !_c.selection!.isCollapsed;
+    final items = <ContextMenuButtonItem>[
+      if (hasSelection)
+        ContextMenuButtonItem(
+          type: ContextMenuButtonType.copy,
+          onPressed: () {
+            _hideContextMenu();
+            _handleCopy();
+          },
+        ),
+      if (hasSelection && !widget.readOnly)
+        ContextMenuButtonItem(
+          type: ContextMenuButtonType.cut,
+          onPressed: () {
+            _hideContextMenu();
+            _handleCut();
+          },
+        ),
+      if (!widget.readOnly)
+        ContextMenuButtonItem(
+          type: ContextMenuButtonType.paste,
+          onPressed: () {
+            _hideContextMenu();
+            _handlePaste();
+          },
+        ),
+      ContextMenuButtonItem(
+        type: ContextMenuButtonType.selectAll,
+        onPressed: () {
+          _hideContextMenu();
+          _c.selectAll();
+        },
+      ),
+    ];
+    _contextMenu.show(
+      context: context,
+      contextMenuBuilder: (_) => AdaptiveTextSelectionToolbar.buttonItems(
+        anchors: TextSelectionToolbarAnchors(primaryAnchor: globalPos),
+        buttonItems: items,
+      ),
+    );
+  }
+
+  void _hideContextMenu() {
+    if (_contextMenu.isShown) _contextMenu.remove();
+  }
+
   Future<void> _handleCut() async {
     if (widget.readOnly) return;
     await _c.cut(bridge: widget.clipboard);
@@ -702,6 +758,8 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
               GestureDetector(
                 behavior: HitTestBehavior.translucent,
                 onTap: _focusNode.requestFocus,
+                onSecondaryTapDown: (d) => _showContextMenu(d.globalPosition),
+                onLongPressStart: (d) => _showContextMenu(d.globalPosition),
                 child: ListView.separated(
                   padding: style.padding,
                   itemCount: _c.document.nodes.length,

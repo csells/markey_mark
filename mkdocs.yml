@@ -57,6 +57,7 @@ nav:
       - Keyboard shortcuts: editing/keyboard-shortcuts.md
       - Find & replace: editing/find-replace.md
       - Clipboard: editing/clipboard.md
+      - Context menu: editing/context-menu.md
       - Drag & drop: editing/drag-and-drop.md
       - Undo & redo: editing/undo-redo.md
       - Document statistics: editing/document-stats.md
