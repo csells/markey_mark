@@ -1,5 +1,6 @@
 import 'dart:math';
 
+import 'package:flutter/foundation.dart' show mapEquals;
 import 'package:meta/meta.dart';
 
 import 'attributes.dart';
@@ -423,6 +424,46 @@ final class FrontMatterNode extends Node {
 
   @override
   String toString() => 'FrontMatterNode($id)';
+}
+
+/// A plugin-defined block: an open extension point (§13.5 / ADR-008) so the
+/// block set isn't a closed `sealed`+`switch`. Carries a [blockType] string and
+/// arbitrary [data]; a registered `BlockSpec` decides how to render/serialize it.
+@immutable
+final class CustomBlockNode extends Node {
+  CustomBlockNode({
+    String? id,
+    required this.blockType,
+    this.data = const {},
+    Attributes? attributes,
+  }) : super(id: id ?? NodeIds.next(), attributes: normalizeAttributes(attributes));
+
+  final String blockType;
+  final Map<String, Object?> data;
+
+  @override
+  String get type => blockType;
+
+  @override
+  Node copyWith({Attributes? attributes}) => CustomBlockNode(
+        id: id,
+        blockType: blockType,
+        data: data,
+        attributes: attributes ?? this.attributes,
+      );
+
+  @override
+  bool operator ==(Object other) =>
+      other is CustomBlockNode &&
+      other.id == id &&
+      other.blockType == blockType &&
+      mapEquals(other.data, data);
+
+  @override
+  int get hashCode => Object.hash(id, blockType, Object.hashAll(data.values));
+
+  @override
+  String toString() => 'CustomBlockNode($id, $blockType)';
 }
 
 /// A GFM table: [rows] of cells (each a [Delta]), row 0 being the header, plus

@@ -157,6 +157,11 @@ class MarkdownEditorController extends ChangeNotifier {
     notifyListeners();
   }
 
+  /// Replaces the document directly (e.g. to seed plugin/custom blocks that
+  /// aren't expressible as Markdown).
+  void setDocument(Document document, {DocumentSelection? selection}) =>
+      _editor.setDocument(document, selection: selection);
+
   // ── Mode switching (single source of truth) ──────────────────────────────
 
   void toggleMode() =>

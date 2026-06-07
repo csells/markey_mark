@@ -22,6 +22,7 @@ import '../render/diagram_renderer.dart';
 import '../render/markdown_source_highlight.dart';
 import '../theme/editor_style.dart';
 import '../ui/slash_menu.dart';
+import 'block_registry.dart';
 import 'clipboard.dart';
 import 'controller.dart';
 import 'drop.dart';
@@ -46,6 +47,7 @@ class MarkdownEditor extends StatefulWidget {
     this.clipboard = const SystemClipboardBridge(),
     this.enableDrop = true,
     this.placeholder,
+    this.blockRegistry,
   });
 
   final MarkdownEditorController controller;
@@ -76,6 +78,10 @@ class MarkdownEditor extends StatefulWidget {
 
   /// Hint text shown over an empty document until the user types.
   final String? placeholder;
+
+  /// Optional registry of renderers for custom/plugin block types
+  /// ([CustomBlockNode]). The open block-set extension point (§13.5).
+  final BlockRegistry? blockRegistry;
 
   @override
   State<MarkdownEditor> createState() => _MarkdownEditorState();
@@ -861,6 +867,11 @@ class _MarkdownEditorState extends State<MarkdownEditor>
 
   /// Builds the rendered widget for a single block (without the reorder handle).
   Widget _blockContent(Node node, EditorStyle style) {
+    // Open block set: a registered custom renderer takes precedence (§13.5).
+    if (node is CustomBlockNode) {
+      final builder = widget.blockRegistry?.builderFor(node.blockType);
+      return builder?.call(context, node, style) ?? const SizedBox.shrink();
+    }
     if (node is HtmlBlockNode) return _buildHtmlBlock(node, style);
     if (node is CodeBlockNode) return _buildCodeBlock(node, style);
     if (node is HorizontalRuleNode) return _buildHr(node, style);
