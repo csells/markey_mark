@@ -24,6 +24,7 @@ import '../ui/slash_menu.dart';
 import 'clipboard.dart';
 import 'controller.dart';
 import 'drop.dart';
+import 'ime_delta.dart';
 
 /// A native, cross-platform WYSIWYG Markdown editor widget.
 ///
@@ -79,7 +80,8 @@ class MarkdownEditor extends StatefulWidget {
   State<MarkdownEditor> createState() => _MarkdownEditorState();
 }
 
-class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
+class _MarkdownEditorState extends State<MarkdownEditor>
+    implements DeltaTextInputClient {
   late FocusNode _focusNode;
   final _MarkdownSourceController _sourceController = _MarkdownSourceController();
   final ValueNotifier<bool> _caretBlink = ValueNotifier<bool>(false);
@@ -87,6 +89,10 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
 
   TextInputConnection? _connection;
   TextEditingValue _imeValue = TextEditingValue.empty;
+
+  /// The active IME composing region (CJK/autocorrect), reflected back so the
+  /// platform keeps composition alive across model syncs.
+  TextRange _composing = TextRange.empty;
 
   /// Per-block laid-out text, keyed by node id (see [_layoutFor]).
   final Map<String, _CachedLayout> _layoutCache = {};
@@ -305,12 +311,17 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
       base = (sel.base.nodePosition as TextNodePosition).offset;
       extent = (sel.extent.nodePosition as TextNodePosition).offset;
     }
+    // Preserve a still-valid composing region so IME composition isn't dropped.
+    final composing = (_composing.isValid && _composing.end <= text.length)
+        ? _composing
+        : TextRange.empty;
     _imeValue = TextEditingValue(
       text: text,
       selection: TextSelection(
         baseOffset: base.clamp(0, text.length),
         extentOffset: extent.clamp(0, text.length),
       ),
+      composing: composing,
     );
     _connection?.setEditingState(_imeValue);
   }
@@ -326,6 +337,8 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
       const TextInputConfiguration(
         inputType: TextInputType.multiline,
         inputAction: TextInputAction.newline,
+        // Precise edits (incl. IME composition / autocorrect) via deltas.
+        enableDeltaModel: true,
       ),
     );
     _syncImeFromModel();
@@ -389,9 +402,56 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
     }
 
     final (start, deleted, inserted) = _diff(old, value.text);
+    _applyImeEdit(block.id, start, deleted, inserted);
+    // Model change triggers _onControllerChanged → _syncImeFromModel.
+  }
+
+  /// Precise IME path (delta model): the platform reports exactly what changed,
+  /// so no string diffing/guessing is needed and IME composition survives.
+  @override
+  void updateEditingValueWithDeltas(List<TextEditingDelta> deltas) {
+    final block = _activeBlock;
+    if (block == null) return;
+    for (final delta in deltas) {
+      _composing = delta.composing;
+      final edit = editFromDelta(delta);
+      if (edit == null) {
+        // Selection/composing-only update.
+        final s = delta.selection;
+        final modelSel = _c.selection;
+        final crossBlock =
+            modelSel != null && modelSel.base.nodeId != modelSel.extent.nodeId;
+        if (s.isValid && !crossBlock) {
+          final len = block.delta.length;
+          _c.setSelection(DocumentSelection(
+            base: DocumentPosition.text(block.id, s.baseOffset.clamp(0, len)),
+            extent: DocumentPosition.text(block.id, s.extentOffset.clamp(0, len)),
+          ));
+        }
+        continue;
+      }
+      final modelSel = _c.selection;
+      if (modelSel != null &&
+          modelSel.base.nodeId != modelSel.extent.nodeId) {
+        // A cross-block selection isn't representable per-block; treat the edit
+        // as replace-the-selection.
+        if (edit.$3.isEmpty) {
+          _c.deleteBackward();
+        } else {
+          _c.insertText(edit.$3);
+        }
+      } else {
+        _applyImeEdit(block.id, edit.$1, edit.$2, edit.$3);
+      }
+    }
+  }
+
+  /// Applies a resolved block-local edit (from either the delta or value path)
+  /// through the same command pipeline.
+  void _applyImeEdit(String blockId, int start, int deleted, String inserted) {
     _c.setSelection(DocumentSelection(
-      base: DocumentPosition.text(block.id, start),
-      extent: DocumentPosition.text(block.id, start + deleted),
+      base: DocumentPosition.text(blockId, start),
+      extent: DocumentPosition.text(blockId, start + deleted),
     ));
     if (inserted.isEmpty) {
       _c.deleteBackward();
@@ -407,7 +467,6 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
     } else {
       _c.insertText(inserted);
     }
-    // Model change triggers _onControllerChanged → _syncImeFromModel.
   }
 
   /// Computes the minimal `(start, deletedLength, insertedText)` between two
@@ -459,6 +518,18 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
   @override
   void didChangeInputControl(
       TextInputControl? oldControl, TextInputControl? newControl) {}
+
+  @override
+  void insertContent(KeyboardInsertedContent content) {}
+
+  @override
+  bool onFocusReceived() => false;
+
+  @override
+  void performSelector(String selectorName) {}
+
+  @override
+  void showToolbar() {}
 
   // ── Gestures ─────────────────────────────────────────────────────────────
 
