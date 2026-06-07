@@ -167,20 +167,29 @@ class MarkdownEditorController extends ChangeNotifier {
     if (mode == EditorMode.source) {
       _sourceText = Markdown.serialize(document);
       final sel = selection;
-      sourceCaret = sel != null
-          ? markdownOffsetForPosition(sel.extent)
-          : _sourceText.length;
+      sourceCaret =
+          sel != null ? markdownOffsetForPosition(sel.extent) : _sourceText.length;
+      sourceCaretBase =
+          sel != null ? markdownOffsetForPosition(sel.base) : sourceCaret;
     } else {
       _editor.setDocument(Markdown.parse(_sourceText));
-      final pos = positionForMarkdownOffset(sourceCaret);
-      if (pos != null) _editor.setSelection(DocumentSelection.collapsed(pos));
+      final extent = positionForMarkdownOffset(sourceCaret);
+      final base = positionForMarkdownOffset(sourceCaretBase);
+      if (extent != null) {
+        _editor.setSelection(DocumentSelection(
+          base: base ?? extent,
+          extent: extent,
+        ));
+      }
     }
     _mode = mode;
     notifyListeners();
   }
 
-  /// The source-text caret offset, preserved across WYSIWYG⇄source toggles.
+  /// The source-text selection, preserved across WYSIWYG⇄source toggles.
+  /// [sourceCaret] is the extent; [sourceCaretBase] the anchor.
   int sourceCaret = 0;
+  int sourceCaretBase = 0;
 
   /// Records in-progress source-mode edits so a later [toggleMode] re-parses
   /// the latest text.

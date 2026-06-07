@@ -147,7 +147,10 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
   void _onSourceSelectionChanged() {
     if (_c.mode != EditorMode.source) return;
     final sel = _sourceController.selection;
-    if (sel.isValid) _c.sourceCaret = sel.baseOffset;
+    if (sel.isValid) {
+      _c.sourceCaretBase = sel.baseOffset;
+      _c.sourceCaret = sel.extentOffset;
+    }
   }
 
   @override
@@ -788,8 +791,11 @@ class _MarkdownEditorState extends State<MarkdownEditor> with TextInputClient {
     final TextSelection selection;
     if (_enterSourcePending) {
       _enterSourcePending = false;
-      selection = TextSelection.collapsed(
-          offset: _c.sourceCaret.clamp(0, _c.markdown.length));
+      final len = _c.markdown.length;
+      selection = TextSelection(
+        baseOffset: _c.sourceCaretBase.clamp(0, len),
+        extentOffset: _c.sourceCaret.clamp(0, len),
+      );
     } else if (_sourceController.selection.isValid &&
         _sourceController.selection.end <= _c.markdown.length) {
       selection = _sourceController.selection;

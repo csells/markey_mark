@@ -39,6 +39,34 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets('a selection range carries into the source field', (tester) async {
+    final c = MarkdownEditorController(markdown: 'hello world');
+    addTearDown(c.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+              width: 600, height: 400, child: MarkdownEditor(controller: c)),
+        ),
+      ),
+    );
+    await tester.pump();
+    final id = c.document.nodes.first.id;
+    c.setSelection(DocumentSelection(
+      base: DocumentPosition.text(id, 0),
+      extent: DocumentPosition.text(id, 5), // "hello"
+    ));
+    await tester.pump();
+
+    c.toggleMode();
+    await tester.pump();
+    final field =
+        tester.widget<TextField>(find.byKey(const Key('markey_source_field')));
+    expect(field.controller!.selection.baseOffset, 0);
+    expect(field.controller!.selection.extentOffset, 5);
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('caret carries from source back into WYSIWYG', (tester) async {
     final c = MarkdownEditorController(markdown: '# Title\n\nsome body text');
     addTearDown(c.dispose);
