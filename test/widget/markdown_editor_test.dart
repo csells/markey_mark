@@ -664,7 +664,9 @@ void main() {
 
       await tester.tap(firstBlock(c));
       await tester.pump();
-      tester.testTextInput.enterText('one!');
+      // One unified IME stream for the whole document; appending "!" to the
+      // first block is reported as the full new stream value.
+      tester.testTextInput.enterText('one!\ntwo\nthree');
       await tester.pump();
       expect((c.document.nodes.first as TextBlockNode).delta.toPlainText(),
           'one!');

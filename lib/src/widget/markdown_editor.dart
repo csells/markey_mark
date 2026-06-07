@@ -12,6 +12,7 @@ import 'package:super_drag_and_drop/super_drag_and_drop.dart' as sdd;
 import '../editing/search.dart';
 import '../model/attributes.dart';
 import '../model/delta.dart';
+import '../model/document_text.dart';
 import '../model/node.dart';
 import '../model/position.dart';
 import '../model/selection.dart';
@@ -298,20 +299,18 @@ class _MarkdownEditorState extends State<MarkdownEditor>
     return first is TextBlockNode ? first : null;
   }
 
+  /// Mirrors the *whole document* to the IME as one text stream (§13 — one
+  /// editor): the OS sees a single field, and selection is in global offsets.
   void _syncImeFromModel() {
-    final block = _activeBlock;
-    if (block == null) return;
-    final text = block.delta.toPlainText();
+    final dt = DocumentText.of(_c.document);
+    final text = dt.text;
     final sel = _c.selection;
     var base = text.length;
     var extent = text.length;
-    if (sel != null &&
-        sel.base.nodeId == block.id &&
-        sel.extent.nodeId == block.id) {
-      base = (sel.base.nodePosition as TextNodePosition).offset;
-      extent = (sel.extent.nodePosition as TextNodePosition).offset;
+    if (sel != null && dt.covers(sel.base.nodeId) && dt.covers(sel.extent.nodeId)) {
+      base = dt.offsetOf(sel.base);
+      extent = dt.offsetOf(sel.extent);
     }
-    // Preserve a still-valid composing region so IME composition isn't dropped.
     final composing = (_composing.isValid && _composing.end <= text.length)
         ? _composing
         : TextRange.empty;
@@ -323,7 +322,7 @@ class _MarkdownEditorState extends State<MarkdownEditor>
       ),
       composing: composing,
     );
-    _connection?.setEditingState(_imeValue);
+    if (_connection?.attached ?? false) _connection!.setEditingState(_imeValue);
   }
 
   void _openConnection() {
@@ -362,100 +361,65 @@ class _MarkdownEditorState extends State<MarkdownEditor>
 
   @override
   void updateEditingValue(TextEditingValue value) {
-    // A cross-block selection can't be mirrored in the per-block IME, so any
-    // content edit while one is active is interpreted against the model
-    // selection (which the commands replace as a whole).
-    final modelSel = _c.selection;
-    if (modelSel != null &&
-        modelSel.base.nodeId != modelSel.extent.nodeId &&
-        value.text != _imeValue.text) {
-      final diff = _diff(_imeValue.text, value.text);
-      final inserted = diff.$3;
-      if (inserted.isEmpty) {
-        _c.deleteBackward();
-      } else if (inserted == '\n') {
-        _c.deleteBackward();
-        _c.splitBlock();
-      } else {
-        _c.insertText(inserted);
-      }
-      return; // _onControllerChanged resyncs the IME from the new model.
-    }
-
-    final block = _activeBlock;
-    if (block == null) {
+    final dt = DocumentText.of(_c.document);
+    if (!dt.coversAny) {
       _imeValue = value;
       return;
     }
     final old = _imeValue.text;
     if (value.text == old) {
-      // Selection-only change.
+      // Selection-only change — map global offsets back to a document selection.
       final s = value.selection;
-      if (s.isValid) {
-        _c.setSelection(DocumentSelection(
-          base: DocumentPosition.text(block.id, s.baseOffset),
-          extent: DocumentPosition.text(block.id, s.extentOffset),
+      if (s.isValid && dt.coversAny) {
+        _c.setSelection(dt.selectionOf(
+          s.baseOffset.clamp(0, dt.text.length),
+          s.extentOffset.clamp(0, dt.text.length),
         ));
       }
       _imeValue = value;
       return;
     }
-
     final (start, deleted, inserted) = _diff(old, value.text);
-    _applyImeEdit(block.id, start, deleted, inserted);
+    _applyStreamEdit(dt, start, deleted, inserted);
     // Model change triggers _onControllerChanged → _syncImeFromModel.
   }
 
   /// Precise IME path (delta model): the platform reports exactly what changed,
-  /// so no string diffing/guessing is needed and IME composition survives.
+  /// in *document-stream* offsets, so each delta maps unambiguously to a
+  /// (possibly cross-block) edit — no special-casing, IME composition survives.
   @override
   void updateEditingValueWithDeltas(List<TextEditingDelta> deltas) {
-    final block = _activeBlock;
-    if (block == null) return;
     for (final delta in deltas) {
       _composing = delta.composing;
+      final dt = DocumentText.of(_c.document); // re-map: the model just changed
+      if (!dt.coversAny) continue;
       final edit = editFromDelta(delta);
       if (edit == null) {
-        // Selection/composing-only update.
         final s = delta.selection;
-        final modelSel = _c.selection;
-        final crossBlock =
-            modelSel != null && modelSel.base.nodeId != modelSel.extent.nodeId;
-        if (s.isValid && !crossBlock) {
-          final len = block.delta.length;
-          _c.setSelection(DocumentSelection(
-            base: DocumentPosition.text(block.id, s.baseOffset.clamp(0, len)),
-            extent: DocumentPosition.text(block.id, s.extentOffset.clamp(0, len)),
+        if (s.isValid) {
+          _c.setSelection(dt.selectionOf(
+            s.baseOffset.clamp(0, dt.text.length),
+            s.extentOffset.clamp(0, dt.text.length),
           ));
         }
         continue;
       }
-      final modelSel = _c.selection;
-      if (modelSel != null &&
-          modelSel.base.nodeId != modelSel.extent.nodeId) {
-        // A cross-block selection isn't representable per-block; treat the edit
-        // as replace-the-selection.
-        if (edit.$3.isEmpty) {
-          _c.deleteBackward();
-        } else {
-          _c.insertText(edit.$3);
-        }
-      } else {
-        _applyImeEdit(block.id, edit.$1, edit.$2, edit.$3);
-      }
+      _applyStreamEdit(dt, edit.$1, edit.$2, edit.$3);
     }
   }
 
-  /// Applies a resolved block-local edit (from either the delta or value path)
-  /// through the same command pipeline.
-  void _applyImeEdit(String blockId, int start, int deleted, String inserted) {
-    _c.setSelection(DocumentSelection(
-      base: DocumentPosition.text(blockId, start),
-      extent: DocumentPosition.text(blockId, start + deleted),
-    ));
+  /// Applies a global-offset stream edit through the unified command pipeline.
+  /// Because the selection is expressed on the whole-document stream, an edit
+  /// that spans a block separator naturally merges/splits blocks — no per-block
+  /// special-casing.
+  void _applyStreamEdit(DocumentText dt, int start, int deleted, String inserted) {
+    if (!dt.coversAny) return;
+    final len = dt.text.length;
+    _c.setSelection(dt.selectionOf(start.clamp(0, len), (start + deleted).clamp(0, len)));
     if (inserted.isEmpty) {
       _c.deleteBackward();
     } else if (inserted == '\n') {
+      if (deleted > 0) _c.deleteBackward();
       _c.splitBlock();
     } else if (inserted.contains('\n')) {
       final segments = inserted.split('\n');

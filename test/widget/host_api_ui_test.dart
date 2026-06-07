@@ -66,14 +66,12 @@ void main() {
       );
       await tester.pump();
 
-      // Type into the second block (append " more" to "body").
+      // One unified IME stream for the whole document; appending " more" to the
+      // body block is reported as the full new stream value ("Title\nbody more").
       await tester.tap(
           find.byKey(ValueKey('markey-block-${c.document.nodes.last.id}')));
       await tester.pump();
-      c.setSelection(DocumentSelection.collapsed(
-          DocumentPosition.text(c.document.nodes.last.id, 4)));
-      await tester.pump();
-      tester.testTextInput.enterText('body more');
+      tester.testTextInput.enterText('Title\nbody more');
       await tester.pump();
 
       expect(find.text('words:3'), findsOneWidget); // Title + body + more

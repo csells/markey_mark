@@ -56,6 +56,9 @@ class DocumentText {
   /// Whether [nodeId] contributes a span to the stream.
   bool covers(String nodeId) => _byId.containsKey(nodeId);
 
+  /// Whether any block contributes text (false for an all-atomic document).
+  bool get coversAny => _segments.isNotEmpty;
+
   /// The global offset of a block-local [position]. Throws if its node isn't in
   /// the stream.
   int offsetOf(DocumentPosition position) {

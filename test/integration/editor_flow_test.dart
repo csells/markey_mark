@@ -63,7 +63,8 @@ void main() {
     final bodyId = c.document.nodes[1].id;
     c.setSelection(DocumentSelection.collapsed(DocumentPosition.text(bodyId, 0)));
     await tester.pump();
-    tester.testTextInput.enterText('Hello world');
+    // One unified IME stream: typing the body is reported as the full new value.
+    tester.testTextInput.enterText('My Title\nHello world');
     await tester.pump();
 
     expect(c.markdown, '# My Title\n\nHello world');

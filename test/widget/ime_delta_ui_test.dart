@@ -85,6 +85,43 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets('deleting the block separator merges blocks (one stream)',
+      (tester) async {
+    // Two blocks → stream "aaa\nbbb"; the separator is global offset 3.
+    final (c, client) = await pump(tester, 'aaa\n\nbbb');
+    expect(c.document.length, 2);
+    client.updateEditingValueWithDeltas(const [
+      TextEditingDeltaDeletion(
+        oldText: 'aaa\nbbb',
+        deletedRange: TextRange(start: 3, end: 4), // the "\n" separator
+        selection: TextSelection.collapsed(offset: 3),
+        composing: TextRange.empty,
+      ),
+    ]);
+    await tester.pump();
+    expect(c.document.length, 1);
+    expect(firstText(c), 'aaabbb');
+    await tester.pumpWidget(const SizedBox());
+  });
+
+  testWidgets('inserting a newline mid-stream splits a block', (tester) async {
+    final (c, client) = await pump(tester, 'aaabbb');
+    client.updateEditingValueWithDeltas(const [
+      TextEditingDeltaInsertion(
+        oldText: 'aaabbb',
+        textInserted: '\n',
+        insertionOffset: 3,
+        selection: TextSelection.collapsed(offset: 4),
+        composing: TextRange.empty,
+      ),
+    ]);
+    await tester.pump();
+    expect(c.document.length, 2);
+    expect((c.document.nodes[0] as TextBlockNode).delta.toPlainText(), 'aaa');
+    expect((c.document.nodes[1] as TextBlockNode).delta.toPlainText(), 'bbb');
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('composing-only delta keeps the text and tracks composition',
       (tester) async {
     final (c, client) = await pump(tester, 'abc');
