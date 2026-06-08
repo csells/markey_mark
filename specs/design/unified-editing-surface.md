@@ -127,16 +127,21 @@ Each step ships behind the existing public API with green tests:
 2. ✅ **Stable ids** via `NodeIdGenerator` (per-site prefix, collision-free
    across peers). *Fractional-index ordering for mergeable reorders is still
    open.*
-3. 🟡 **Selection authority**: selection is now expressed/round-tripped on the
-   stream by the IME; consolidating every gesture into one `SelectionController`
-   is still open (tap/pan/shift-click/mouse-drag already funnel through
-   `controller.setSelection`).
+3. ✅ **Selection authority**: every selection change goes through controller
+   intents (`placeCaretAt` / `extendSelectionTo` / `selectByOffsets` /
+   `selectionOffsets`) expressed in `DocumentText` global offsets; gestures and
+   the IME call these instead of building `DocumentSelection`s ad hoc.
 4. ✅ **IME on the stream**: `updateEditingValue` / `updateEditingValueWithDeltas`
    map deltas through `DocumentText`; the cross-block special-cases are gone —
    deleting a separator merges blocks, inserting a newline splits one, natively.
-5. ⬜ **Tables & code as regions**: still open. Today code blocks are read-only
-   `RichText` (not an editor) and table cells use `TextField`s that commit
-   through the **unified** controller/undo; selection can't yet *enter* a cell.
+5. 🟡 **Tables & code as regions**: **code blocks done** — their text is in the
+   stream, edits route through the shared command pipeline (Enter inserts a
+   literal newline), and they render with the unified caret (read-only stays
+   highlighted). **Tables still open**: a 2D grid maps poorly onto a *linear*
+   stream (a cross-cell backspace would "merge" cells), so unifying them needs a
+   table-aware position/selection model plus caret-based cell rendering — its own
+   focused effort. Table cells today are `TextField`s that commit through the
+   **unified** controller/undo.
 6. ✅ **Open block set**: `CustomBlockNode` + `BlockRegistry` render extension
    point (`block_registry.dart`). *Decode/encode registration builds on the same
    seam and is still open.*
