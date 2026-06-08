@@ -1,5 +1,6 @@
 import 'package:characters/characters.dart';
 
+import '../model/delta.dart';
 import '../model/document.dart';
 import '../model/node.dart';
 import '../model/position.dart';
@@ -66,6 +67,46 @@ abstract final class EditCommands {
     return (doc.indexOfId(node.id), node, a <= b ? a : b, a <= b ? b : a);
   }
 
+  /// Resolves a selection confined to a single table cell, or null.
+  /// (index, table, row, col, start, end) with start <= end.
+  static (int, TableNode, int, int, int, int)? _singleCell(
+      Document doc, DocumentSelection? sel) {
+    if (sel == null || sel.base.nodeId != sel.extent.nodeId) return null;
+    final node = doc.nodeById(sel.base.nodeId);
+    if (node is! TableNode) return null;
+    final bp = sel.base.nodePosition;
+    final ep = sel.extent.nodePosition;
+    if (bp is! TableCellPosition || ep is! TableCellPosition) return null;
+    if (bp.row != ep.row || bp.col != ep.col) return null; // within one cell only
+    final a = bp.offset, b = ep.offset;
+    return (doc.indexOfId(node.id), node, bp.row, bp.col, a <= b ? a : b,
+        a <= b ? b : a);
+  }
+
+  static DocumentSelection _cellCaret(String id, int r, int col, int offset) =>
+      DocumentSelection.collapsed(DocumentPosition(
+          nodeId: id, nodePosition: TableCellPosition(r, col, offset)));
+
+  static EditTransaction? _editCell(
+      Document doc, DocumentSelection? sel, int start, int end, Delta replacement) {
+    final c = _singleCell(doc, sel);
+    if (c == null) return null;
+    final (index, table, row, col, _, _) = c;
+    final cellDelta = table.rows[row][col];
+    final newCell = cellDelta
+        .slice(0, start)
+        .concat(replacement)
+        .concat(cellDelta.slice(end, cellDelta.length));
+    return EditTransaction(
+      operations: [
+        ReplaceNodeOp(index, table, table.withCell(row, col, newCell)),
+      ],
+      selectionBefore: sel,
+      selectionAfter: _cellCaret(table.id, row, col, start + replacement.length),
+      tag: 'typing',
+    );
+  }
+
   static DocumentSelection _caret(String nodeId, int offset) =>
       DocumentSelection.collapsed(DocumentPosition.text(nodeId, offset));
 
@@ -127,6 +168,14 @@ abstract final class EditCommands {
     String text,
   ) {
     if (text.isEmpty) return null;
+    final cell = _singleCell(doc, sel);
+    if (cell != null) {
+      final (_, table, row, col, start, end) = cell;
+      final attrs = start > 0
+          ? table.rows[row][col].attributesAt(start)
+          : const <String, Object?>{};
+      return _editCell(doc, sel, start, end, Delta.empty().insert(0, text, attrs));
+    }
     final cb = _singleCode(doc, sel);
     if (cb != null) {
       final (index, node, start, end) = cb;
@@ -184,6 +233,15 @@ abstract final class EditCommands {
   /// Deletes the selected range, or one grapheme before the caret. At the start
   /// of a block, merges with the previous text block.
   static EditTransaction? deleteBackward(Document doc, DocumentSelection? sel) {
+    final cell = _singleCell(doc, sel);
+    if (cell != null) {
+      final (_, _, _, _, start, end) = cell;
+      if (start == end) {
+        if (start == 0) return null; // at cell start: don't merge across cells
+        return _editCell(doc, sel, start - 1, start, Delta.empty());
+      }
+      return _editCell(doc, sel, start, end, Delta.empty());
+    }
     final cb = _singleCode(doc, sel);
     if (cb != null) {
       final (index, node, start, end) = cb;

@@ -56,6 +56,34 @@ final class AtomicNodePosition extends NodePosition {
       'AtomicNodePosition(${upstream ? 'upstream' : 'downstream'})';
 }
 
+/// A caret position inside a table cell: the cell ([row], [col]) plus a text
+/// [offset] within that cell. Lets a 2D table be a sub-editor sharing the
+/// command/caret pipeline without flattening cells into the linear stream.
+@immutable
+final class TableCellPosition extends NodePosition {
+  const TableCellPosition(this.row, this.col, this.offset);
+
+  final int row;
+  final int col;
+  final int offset;
+
+  TableCellPosition copyWith({int? row, int? col, int? offset}) =>
+      TableCellPosition(row ?? this.row, col ?? this.col, offset ?? this.offset);
+
+  @override
+  bool operator ==(Object other) =>
+      other is TableCellPosition &&
+      other.row == row &&
+      other.col == col &&
+      other.offset == offset;
+
+  @override
+  int get hashCode => Object.hash(row, col, offset);
+
+  @override
+  String toString() => 'TableCellPosition($row, $col, $offset)';
+}
+
 /// A position in the document: a node id plus a position within that node.
 @immutable
 final class DocumentPosition {

@@ -28,7 +28,12 @@ export 'src/model/node.dart'
 export 'src/model/document.dart' show Document;
 export 'src/model/document_text.dart' show DocumentText;
 export 'src/model/position.dart'
-    show DocumentPosition, NodePosition, TextNodePosition, AtomicNodePosition;
+    show
+        DocumentPosition,
+        NodePosition,
+        TextNodePosition,
+        AtomicNodePosition,
+        TableCellPosition;
 export 'src/model/selection.dart' show DocumentSelection;
 
 // Editing (L4)
