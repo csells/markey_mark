@@ -520,7 +520,7 @@ class MarkdownEditorController extends ChangeNotifier {
     _canRevertRule = false;
     final n = document.length;
     if (from < 0 || from >= n || from == to) return;
-    final node = document.nodes[from];
+    final node = document.nodeAt(from);
     // After removing [from], the destination index in the shrunken list.
     final dest = to.clamp(0, n - 1);
     _editor.apply(EditTransaction(
@@ -537,7 +537,7 @@ class MarkdownEditorController extends ChangeNotifier {
     if (i < 0) return;
     final target = i + dir;
     if (target < 0 || target >= document.length) return;
-    final node = document.nodes[i];
+    final node = document.nodeAt(i);
     _editor.apply(EditTransaction(
       operations: [DeleteNodeOp(i, node), InsertNodeOp(target, node)],
       selectionBefore: selection,
@@ -669,7 +669,7 @@ class MarkdownEditorController extends ChangeNotifier {
     return DocumentStats(
       words: words,
       characters: characters,
-      blocks: document.nodes.length,
+      blocks: document.length,
     );
   }
 
@@ -773,7 +773,7 @@ class MarkdownEditorController extends ChangeNotifier {
         ? (p.nodePosition as TextNodePosition).offset
         : 0;
     if (iBase == iExt) {
-      final node = document.nodes[iBase];
+      final node = document.nodeAt(iBase);
       if (node is! TextBlockNode) return null;
       final a = offsetOf(sel.base);
       final b = offsetOf(sel.extent);
@@ -786,7 +786,7 @@ class MarkdownEditorController extends ChangeNotifier {
     final endPos = iBase <= iExt ? sel.extent : sel.base;
     final out = <Node>[];
     for (var idx = startIdx; idx <= endIdx; idx++) {
-      final n = document.nodes[idx];
+      final n = document.nodeAt(idx);
       if (n is TextBlockNode) {
         final from = idx == startIdx ? offsetOf(startPos) : 0;
         final to = idx == endIdx ? offsetOf(endPos) : n.delta.length;

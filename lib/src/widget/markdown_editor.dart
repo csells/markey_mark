@@ -334,15 +334,15 @@ class _MarkdownEditorState extends State<MarkdownEditor>
     // Include one editable neighbor on each side so backspace-at-start merges
     // with the previous block and Enter-splits flow into the next — without
     // pulling in the whole document (latency stays O(selection span + 2)).
-    final from = (lo - 1).clamp(0, doc.nodes.length - 1);
-    final to = (hi + 1).clamp(0, doc.nodes.length - 1);
+    final from = (lo - 1).clamp(0, doc.length - 1);
+    final to = (hi + 1).clamp(0, doc.length - 1);
     final window = <Node>[
       for (var i = from; i <= to; i++)
-        if (editable(doc.nodes[i])) doc.nodes[i],
+        if (editable(doc.nodeAt(i))) doc.nodeAt(i),
     ];
     if (window.isEmpty) {
       // Fall back to the first editable block so an empty doc still types.
-      final first = doc.nodes.isNotEmpty ? doc.nodes.first : null;
+      final first = doc.length > 0 ? doc.nodeAt(0) : null;
       if (first != null && editable(first)) window.add(first);
     }
     if (window.isEmpty) return null;
@@ -354,7 +354,7 @@ class _MarkdownEditorState extends State<MarkdownEditor>
     final id = sel?.extent.nodeId;
     final node = id != null ? _c.document.nodeById(id) : null;
     if (node is TextBlockNode) return node;
-    final first = _c.document.nodes.first;
+    final first = _c.document.nodeAt(0);
     return first is TextBlockNode ? first : null;
   }
 
@@ -1050,11 +1050,11 @@ class _MarkdownEditorState extends State<MarkdownEditor>
                       ? const NeverScrollableScrollPhysics()
                       : null,
                   padding: style.padding,
-                  itemCount: _c.document.nodes.length,
+                  itemCount: _c.document.length,
                   separatorBuilder: (_, __) =>
                       SizedBox(height: style.blockSpacing),
                   itemBuilder: (context, index) {
-                    final node = _c.document.nodes[index];
+                    final node = _c.document.nodeAt(index);
                     final content = _blockContent(node, style);
                     if (widget.readOnly) return content;
                     return _ReorderableBlock(
@@ -1227,7 +1227,7 @@ class _MarkdownEditorState extends State<MarkdownEditor>
         _calloutStyles[kind] ?? (const Color(0xFF0969DA), Icons.info_outline);
     // Show the title row only on the first block of a callout run.
     final idx = _c.document.indexOfId(node.id);
-    final prev = idx > 0 ? _c.document.nodes[idx - 1] : null;
+    final prev = idx > 0 ? _c.document.nodeAt(idx - 1) : null;
     final isRunStart = !(prev is TextBlockNode &&
         prev.type == BlockType.quote &&
         prev.callout == kind);

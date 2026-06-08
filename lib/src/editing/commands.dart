@@ -122,10 +122,10 @@ abstract final class EditCommands {
         : (sel.extent, iExt, sel.base, iBase);
     return _MultiSel(
       startIdx,
-      doc.nodes[startIdx],
+      doc.nodeAt(startIdx),
       _offsetOf(startPos.nodePosition),
       endIdx,
-      doc.nodes[endIdx],
+      doc.nodeAt(endIdx),
       _offsetOf(endPos.nodePosition),
     );
   }
@@ -150,7 +150,7 @@ abstract final class EditCommands {
       ReplaceNodeOp(m.startIndex, first, first.copyWithDelta(mergedDelta)),
       // Delete trailing blocks high-index-first so indices stay valid.
       for (var idx = m.endIndex; idx > m.startIndex; idx--)
-        DeleteNodeOp(idx, doc.nodes[idx]),
+        DeleteNodeOp(idx, doc.nodeAt(idx)),
     ];
     return EditTransaction(
       operations: ops,
@@ -207,7 +207,7 @@ abstract final class EditCommands {
       final ops = <Operation>[
         ReplaceNodeOp(m.startIndex, first, first.copyWithDelta(mergedDelta)),
         for (var idx = m.endIndex; idx > m.startIndex; idx--)
-          DeleteNodeOp(idx, doc.nodes[idx]),
+          DeleteNodeOp(idx, doc.nodeAt(idx)),
       ];
       return EditTransaction(
         operations: ops,
@@ -370,7 +370,7 @@ abstract final class EditCommands {
     if (m == null) return null;
     final portions = <(int, TextBlockNode, int, int)>[];
     for (var idx = m.startIndex; idx <= m.endIndex; idx++) {
-      final node = doc.nodes[idx];
+      final node = doc.nodeAt(idx);
       if (node is! TextBlockNode) continue;
       final from = idx == m.startIndex ? m.startOffset : 0;
       final to = idx == m.endIndex ? m.endOffset : node.delta.length;
