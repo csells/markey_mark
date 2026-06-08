@@ -14,8 +14,15 @@ abstract final class Markdown {
   /// Parses Markdown [source] into a [Document].
   static Document parse(String source) => _decoder.convert(source);
 
+  /// Number of full-document serializations performed — a test/CI hook to prove
+  /// the `markdown` getter is memoized (not re-serialized on every read).
+  static int debugSerializeCount = 0;
+
   /// Serializes [document] to Markdown text.
-  static String serialize(Document document) => _encoder.convert(document);
+  static String serialize(Document document) {
+    debugSerializeCount++;
+    return _encoder.convert(document);
+  }
 
   /// Serializes [document], also returning each block's start offset in the
   /// output (keyed by node id).

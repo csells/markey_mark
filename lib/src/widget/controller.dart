@@ -145,9 +145,21 @@ class MarkdownEditorController extends ChangeNotifier {
   bool get canUndo => _editor.canUndo;
   bool get canRedo => _editor.canRedo;
 
+  // Memoize whole-document serialization by document identity, so repeated
+  // `markdown` reads (autosave listeners + onChanged + callers) don't
+  // re-serialize. The document is immutable, so identity == content.
+  Document? _serializedFor;
+  String _serializedMd = '';
+
   /// The Markdown source. In source mode this reflects in-progress edits.
-  String get markdown =>
-      _mode == EditorMode.source ? _sourceText : Markdown.serialize(document);
+  String get markdown {
+    if (_mode == EditorMode.source) return _sourceText;
+    if (!identical(_serializedFor, document)) {
+      _serializedFor = document;
+      _serializedMd = Markdown.serialize(document);
+    }
+    return _serializedMd;
+  }
 
   set markdown(String value) {
     if (_mode == EditorMode.source) {
