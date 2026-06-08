@@ -150,12 +150,15 @@ semantic action actually advances the document caret. The cursor-move semantics
 reuse the motor, so there is one movement implementation behind keyboard, IME,
 and assistive tech.
 
-**Next a11y refinement:** the `Semantics` widget can't carry `textSelection`
-(that lives on `SemanticsConfiguration` in a `RenderObject`); to expose the live
-caret offset (so a screen reader announces caret position and supports
-word-granularity cursor moves), wrap the surface in a small
-`SingleChildRenderObjectWidget` whose render object sets
-`config.textSelection` and `onMoveCursorForward/BackwardByWord`. Tracked.
+**Live caret + word granularity (implemented):** the surface is wrapped in a
+small `SingleChildRenderObjectWidget` (`_TextFieldSemantics` → a `RenderProxyBox`
+that overrides `describeSemanticsConfiguration`) so it can carry what the
+`Semantics` widget can't: `config.textSelection` (the live caret/selection, so a
+screen reader announces caret position) and `onMoveCursorForward/BackwardByWord`
+(word-granularity cursor moves, delegating to the motor). `config.textDirection`
+is derived from the value (RTL-aware). Gated by `accessibility_test.dart`:
+`getSemanticsData().textSelection` reflects the caret, and performing the
+`moveCursorForwardByWord` semantic action advances the caret by a word.
 
 ## 14.7 Mobile handles & magnifier (implemented)
 

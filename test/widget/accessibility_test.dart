@@ -124,5 +124,35 @@ void main() {
       handle.dispose();
       await tester.pumpWidget(const SizedBox());
     });
+
+    testWidgets('exposes the live caret as textSelection + word actions',
+        (tester) async {
+      final handle = tester.ensureSemantics();
+      final c = await pump(tester, 'one two three');
+      final id = c.document.nodes.first.id;
+      c.placeCaretAt(DocumentPosition.text(id, 3));
+      await tester.pump();
+
+      expect(
+        textField(tester),
+        isSemantics(
+          isTextField: true,
+          hasMoveCursorForwardByWordAction: true,
+          hasMoveCursorBackwardByWordAction: true,
+        ),
+      );
+      // The live caret is exposed as the semantic text selection.
+      expect(textField(tester).getSemanticsData().textSelection,
+          const TextSelection.collapsed(offset: 3));
+
+      // The word semantic action moves the caret by a word.
+      final owner = textField(tester).owner!;
+      owner.performAction(textField(tester).id,
+          SemanticsAction.moveCursorForwardByWord, false);
+      await tester.pump();
+      expect((c.selection!.extent.nodePosition as TextNodePosition).offset, 7);
+      handle.dispose();
+      await tester.pumpWidget(const SizedBox());
+    });
   });
 }

@@ -4,6 +4,8 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show RenderProxyBox;
+import 'package:flutter/semantics.dart' show SemanticsConfiguration;
 import 'package:flutter/services.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:super_clipboard/super_clipboard.dart' as sc;
@@ -448,6 +450,32 @@ class _MarkdownEditorState extends State<MarkdownEditor>
 
   /// The active block's visible text, or '' — the screen-reader value.
   String _semanticsValue() => _activeBlock?.delta.toPlainText() ?? '';
+
+  /// The caret/selection within the active block (its coordinates), for the
+  /// live semantic `textSelection`, or null when the selection is elsewhere.
+  TextSelection? _semanticsSelection() {
+    final sel = _c.selection;
+    final active = _activeBlock;
+    if (sel == null || active == null) return null;
+    if (sel.base.nodeId != active.id || sel.extent.nodeId != active.id) {
+      return null;
+    }
+    final b = sel.base.nodePosition;
+    final e = sel.extent.nodePosition;
+    if (b is! TextNodePosition || e is! TextNodePosition) return null;
+    return TextSelection(baseOffset: b.offset, extentOffset: e.offset);
+  }
+
+  void _semanticsMoveCursorWord({required bool forward, required bool extend}) {
+    _verticalGoalX = null;
+    if (_c.selection == null) {
+      final active = _activeBlock;
+      if (active == null) return;
+      _c.placeCaretAt(DocumentPosition.text(active.id, 0));
+    }
+    _c.moveSelection(
+        forward: forward, granularity: CaretGranularity.word, extend: extend);
+  }
 
   void _semanticsSetSelection(TextSelection sel) {
     final active = _activeBlock;
@@ -1453,22 +1481,19 @@ class _MarkdownEditorState extends State<MarkdownEditor>
         actions: _actions(),
         child: Focus(
           focusNode: _focusNode,
-          child: Semantics(
-            container: true,
-            textField: true,
-            multiline: true,
+          child: _TextFieldSemantics(
+            // Reuses SemanticsConfiguration via a RenderObject so we can expose
+            // the live caret (textSelection) and word-granularity cursor moves
+            // that the Semantics widget can't carry — screen readers see one
+            // editable text field with a real, movable caret.
             readOnly: widget.readOnly,
-            // The active block's visible text + caret, so screen readers treat
-            // the editor as an editable field with a movable caret. Built only
-            // when semantics are enabled (a screen reader is active).
             value: _semanticsValue(),
-            onSetSelection: widget.readOnly ? null : _semanticsSetSelection,
-            onMoveCursorForwardByCharacter: widget.readOnly
-                ? null
-                : (extend) => _semanticsMoveCursor(forward: true, extend: extend),
-            onMoveCursorBackwardByCharacter: widget.readOnly
-                ? null
-                : (extend) => _semanticsMoveCursor(forward: false, extend: extend),
+            selection: _semanticsSelection(),
+            onSetSelection: _semanticsSetSelection,
+            onMoveByCharacter: (forward, extend) =>
+                _semanticsMoveCursor(forward: forward, extend: extend),
+            onMoveByWord: (forward, extend) =>
+                _semanticsMoveCursorWord(forward: forward, extend: extend),
             child: Stack(
             children: [
               Listener(
@@ -2646,6 +2671,117 @@ class _CodeBlockPainter extends CustomPainter {
       old.showCaret != showCaret ||
       old.selectionColor != selectionColor ||
       old.caretColor != caretColor;
+}
+
+// ── Editable text-field semantics ──────────────────────────────────────────
+
+typedef _MoveBy = void Function(bool forward, bool extend);
+
+/// Publishes editable text-field semantics for the hand-painted surface via a
+/// `RenderObject` (so it can expose the live `textSelection` and word-
+/// granularity cursor actions the `Semantics` widget can't), reusing Flutter's
+/// `SemanticsConfiguration`.
+class _TextFieldSemantics extends SingleChildRenderObjectWidget {
+  const _TextFieldSemantics({
+    required this.readOnly,
+    required this.value,
+    required this.selection,
+    required this.onSetSelection,
+    required this.onMoveByCharacter,
+    required this.onMoveByWord,
+    required Widget super.child,
+  });
+
+  final bool readOnly;
+  final String value;
+  final TextSelection? selection;
+  final void Function(TextSelection) onSetSelection;
+  final _MoveBy onMoveByCharacter;
+  final _MoveBy onMoveByWord;
+
+  @override
+  RenderObject createRenderObject(BuildContext context) =>
+      _RenderTextFieldSemantics(
+        readOnly: readOnly,
+        value: value,
+        selection: selection,
+        onSetSelection: onSetSelection,
+        onMoveByCharacter: onMoveByCharacter,
+        onMoveByWord: onMoveByWord,
+      );
+
+  @override
+  void updateRenderObject(
+      BuildContext context, _RenderTextFieldSemantics renderObject) {
+    renderObject
+      ..readOnly = readOnly
+      ..value = value
+      ..selection = selection
+      ..onSetSelection = onSetSelection
+      ..onMoveByCharacter = onMoveByCharacter
+      ..onMoveByWord = onMoveByWord;
+  }
+}
+
+class _RenderTextFieldSemantics extends RenderProxyBox {
+  _RenderTextFieldSemantics({
+    required bool readOnly,
+    required String value,
+    required TextSelection? selection,
+    required this.onSetSelection,
+    required this.onMoveByCharacter,
+    required this.onMoveByWord,
+  })  : _readOnly = readOnly,
+        _value = value,
+        _selection = selection;
+
+  bool _readOnly;
+  set readOnly(bool v) {
+    if (v == _readOnly) return;
+    _readOnly = v;
+    markNeedsSemanticsUpdate();
+  }
+
+  String _value;
+  set value(String v) {
+    if (v == _value) return;
+    _value = v;
+    markNeedsSemanticsUpdate();
+  }
+
+  TextSelection? _selection;
+  set selection(TextSelection? v) {
+    if (v == _selection) return;
+    _selection = v;
+    markNeedsSemanticsUpdate();
+  }
+
+  // Callbacks delegate to the (stable) editor state, so swapping them needs no
+  // semantics rebuild.
+  void Function(TextSelection) onSetSelection;
+  _MoveBy onMoveByCharacter;
+  _MoveBy onMoveByWord;
+
+  @override
+  void describeSemanticsConfiguration(SemanticsConfiguration config) {
+    super.describeSemanticsConfiguration(config);
+    config
+      ..isTextField = true
+      ..isReadOnly = _readOnly
+      ..value = _value
+      // A non-empty semantic value requires a direction; derive it (RTL-aware).
+      ..textDirection = resolveBaseDirection(_value);
+    final sel = _selection;
+    if (sel != null) config.textSelection = sel;
+    if (!_readOnly) {
+      config
+        ..onSetSelection = onSetSelection
+        ..onMoveCursorForwardByCharacter = ((extend) => onMoveByCharacter(true, extend))
+        ..onMoveCursorBackwardByCharacter = ((extend) => onMoveByCharacter(false, extend))
+        ..onMoveCursorForwardByWord = ((extend) => onMoveByWord(true, extend))
+        ..onMoveCursorBackwardByWord = ((extend) => onMoveByWord(false, extend));
+    }
+  }
 }
 
 // ── Selection bubble toolbar ───────────────────────────────────────────────
