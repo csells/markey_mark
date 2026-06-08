@@ -184,6 +184,14 @@ class _MarkdownEditorState extends State<MarkdownEditor>
     _lastMode = _c.mode;
     _c.addListener(_onControllerChanged);
     _sourceController.addListener(_onSourceSelectionChanged);
+    // Touch handles track the text as it scrolls (fires on drag and jumpTo).
+    // Rebuild post-frame so the overlay reads the block positions *after* the
+    // scroll layout has been applied (a build-phase read would be a frame stale).
+    _scrollController.addListener(() {
+      if (_handlesEntry == null) return;
+      WidgetsBinding.instance
+          .addPostFrameCallback((_) => _handlesEntry?.markNeedsBuild());
+    });
   }
 
   /// Keep the controller's preserved source caret in sync with the source field.
@@ -210,6 +218,7 @@ class _MarkdownEditorState extends State<MarkdownEditor>
     _hideContextMenu();
     _handlesEntry?.remove();
     _handlesEntry = null;
+    _scrollController.dispose();
     _sourceController.removeListener(_onSourceSelectionChanged);
     _disposeLayoutCache();
     super.dispose();
@@ -447,6 +456,16 @@ class _MarkdownEditorState extends State<MarkdownEditor>
   // wire the platform cursor-move / set-selection semantic actions to the same
   // CaretMotor the keyboard uses, reusing Flutter's `SemanticsConfiguration`
   // (via the `Semantics` widget) rather than reimplementing a11y.
+
+  /// True when the caret's block lays out right-to-left, so the arrow keys move
+  /// the caret *visually* (Left = visually-left = logically forward in RTL).
+  bool _activeBlockIsRtl() {
+    final node = _c.document.nodeById(_c.selection?.extent.nodeId ?? '');
+    if (node is TextBlockNode) {
+      return resolveBaseDirection(node.delta.toPlainText()) == TextDirection.rtl;
+    }
+    return false;
+  }
 
   /// The active block's visible text, or '' — the screen-reader value.
   String _semanticsValue() => _activeBlock?.delta.toPlainText() ?? '';
@@ -980,6 +999,7 @@ class _MarkdownEditorState extends State<MarkdownEditor>
   // keys, in global coordinates — the same trick `SelectionOverlay` uses).
 
   OverlayEntry? _handlesEntry;
+  final ScrollController _scrollController = ScrollController();
   final MaterialTextSelectionControls _handleControls =
       MaterialTextSelectionControls();
 
@@ -1507,6 +1527,7 @@ class _MarkdownEditorState extends State<MarkdownEditor>
                 onSecondaryTapDown: (d) => _showContextMenu(d.globalPosition),
                 onLongPressStart: (d) => _showContextMenu(d.globalPosition),
                 child: ListView.separated(
+                  controller: _scrollController,
                   physics: _mouseSelecting
                       ? const NeverScrollableScrollPhysics()
                       : null,
@@ -2317,8 +2338,15 @@ class _MarkdownEditorState extends State<MarkdownEditor>
         }),
         _MoveIntent: CallbackAction<_MoveIntent>(onInvoke: (i) {
           _verticalGoalX = null; // any horizontal/word/line move ends a v-run
+          // In an RTL block, Left/Right are VISUAL: flip char/word direction so
+          // the caret moves visually left/right, not logically.
+          final visualFlip = (i.granularity == CaretGranularity.character ||
+                  i.granularity == CaretGranularity.word) &&
+              _activeBlockIsRtl();
           _c.moveSelection(
-              forward: i.forward, granularity: i.granularity, extend: i.extend);
+              forward: visualFlip ? !i.forward : i.forward,
+              granularity: i.granularity,
+              extend: i.extend);
           return null;
         }),
         _VerticalMoveIntent: CallbackAction<_VerticalMoveIntent>(onInvoke: (i) {

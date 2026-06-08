@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:markey_mark/markey_mark.dart';
 
@@ -57,6 +58,44 @@ void main() {
     final c = await pump(tester, 'hello\n\nمرحبا');
     expect(blockDirection(tester, c.document.nodes[0].id), TextDirection.ltr);
     expect(blockDirection(tester, c.document.nodes[1].id), TextDirection.rtl);
+  });
+
+  Future<void> arrow(WidgetTester tester, LogicalKeyboardKey k) async {
+    await tester.sendKeyEvent(k);
+    await tester.pump();
+  }
+
+  testWidgets('arrow keys move the caret VISUALLY in an RTL paragraph',
+      (tester) async {
+    final c = await pump(tester, 'אבגדה'); // Hebrew, 5 letters
+    final id = c.document.nodes.first.id;
+    await tester.tap(find.byType(MarkdownEditor));
+    await tester.pump();
+    int off() => (c.selection!.extent.nodePosition as TextNodePosition).offset;
+
+    // Caret at logical 0 = the visual RIGHT edge. ArrowLeft moves visually left
+    // → logically forward (offset increases).
+    c.placeCaretAt(DocumentPosition.text(id, 0));
+    await tester.pump();
+    await arrow(tester, LogicalKeyboardKey.arrowLeft);
+    expect(off(), 1);
+    await arrow(tester, LogicalKeyboardKey.arrowLeft);
+    expect(off(), 2);
+    // ArrowRight moves visually right → logically backward.
+    await arrow(tester, LogicalKeyboardKey.arrowRight);
+    expect(off(), 1);
+  });
+
+  testWidgets('arrow keys stay logical (unflipped) in an LTR paragraph',
+      (tester) async {
+    final c = await pump(tester, 'abcde');
+    final id = c.document.nodes.first.id;
+    await tester.tap(find.byType(MarkdownEditor));
+    await tester.pump();
+    c.placeCaretAt(DocumentPosition.text(id, 0));
+    await tester.pump();
+    await arrow(tester, LogicalKeyboardKey.arrowRight);
+    expect((c.selection!.extent.nodePosition as TextNodePosition).offset, 1);
   });
 
   testWidgets('caret/selection still work in RTL text (logical offsets)',

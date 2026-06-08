@@ -75,6 +75,34 @@ void main() {
     expect(c.selection!.isCollapsed, isFalse);
   }, variant: const TargetPlatformVariant(<TargetPlatform>{TargetPlatform.android, TargetPlatform.iOS}));
 
+  testWidgets('handles follow the text when the document scrolls',
+      (tester) async {
+    // Enough blocks to scroll; select in a block that stays visible after a
+    // small scroll so the handle should move with it (not disappear).
+    final md = List.generate(40, (i) => 'paragraph number $i').join('\n\n');
+    final c = await pump(tester, md);
+    final id = c.document.nodes[3].id;
+    c.setSelection(DocumentSelection(
+      base: DocumentPosition.text(id, 0),
+      extent: DocumentPosition.text(id, 5),
+    ));
+    await tester.pumpAndSettle();
+
+    final before =
+        tester.getTopLeft(find.byKey(const Key('markey_handle_start')));
+    // Scroll the document up a little; the handle must track the text upward.
+    tester
+        .state<ScrollableState>(find.descendant(
+            of: find.byType(ListView), matching: find.byType(Scrollable)))
+        .position
+        .jumpTo(30);
+    await tester.pumpAndSettle();
+    final after =
+        tester.getTopLeft(find.byKey(const Key('markey_handle_start')));
+    expect(after.dy, lessThan(before.dy));
+    expect(after.dy, closeTo(before.dy - 30, 1));
+  }, variant: const TargetPlatformVariant(<TargetPlatform>{TargetPlatform.android, TargetPlatform.iOS}));
+
   testWidgets('a magnifier appears while dragging a handle', (tester) async {
     final c = await pump(tester, 'hello world here');
     final id = c.document.nodes.first.id;
