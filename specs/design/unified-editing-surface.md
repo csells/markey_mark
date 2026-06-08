@@ -205,7 +205,17 @@ instead of materializing `nodes`. Gated by `document_perf_test`: typing in a
 **100k-block** document is ~as fast as in a 200-block one, and typing adds no
 linear id scans after priming (`Document.debugIdScans`).
 
+Drag hit-testing (`_blockAtGlobal`) also iterates only built blocks (≈viewport),
+not the whole document, per pointer move.
+
 *Earlier mistake, corrected:* the first "latency fixed" pass only removed the
 expensive O(n) (whole-document string flatten) and a 4k-block timing test gave
 false confidence; the flat-`List` `indexOfId` scans and copy-on-write were still
 O(n) per keystroke. Now genuinely O(log n).
+
+**Remaining perf frontier — intra-block:** per-keystroke cost is now O(log n) in
+*block count* and O(active block size) in characters. A single pathologically
+large block (e.g. a 50k-char pasted code block) still re-shapes one `TextPainter`
+and re-flattens that block per keystroke — O(block size). The research answer
+(CodeMirror's viewport line rendering) is line-based layout within a block,
+re-shaping only changed/visible lines. Tracked; not yet addressed.
