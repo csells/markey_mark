@@ -19,6 +19,19 @@ void main() {
       expect(dt.covers('hr'), isFalse);
       expect(dt.covers('a'), isTrue);
     });
+
+    test('includes code blocks as editable regions of the stream', () {
+      final dt = DocumentText.of(Document([
+        p('a', 'x'),
+        CodeBlockNode(id: 'c', code: 'co\nde'),
+        p('b', 'y'),
+      ]));
+      expect(dt.text, 'x\nco\nde\ny');
+      expect(dt.covers('c'), isTrue);
+      expect(dt.offsetOf(DocumentPosition.text('c', 0)), 2);
+      expect(dt.offsetOf(DocumentPosition.text('c', 5)), 7); // end of "co\nde"
+      expect(dt.positionAt(7), DocumentPosition.text('c', 5));
+    });
   });
 
   group('offset ⇄ position mapping', () {

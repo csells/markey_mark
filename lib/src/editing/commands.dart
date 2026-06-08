@@ -52,6 +52,20 @@ abstract final class EditCommands {
     return _BlockSel(index, node, start, end);
   }
 
+  /// Resolves a selection confined to a single code block (treated as editable
+  /// plain text), or null. (index, node, start, end) with start <= end.
+  static (int, CodeBlockNode, int, int)? _singleCode(
+      Document doc, DocumentSelection? sel) {
+    if (sel == null || sel.base.nodeId != sel.extent.nodeId) return null;
+    final node = doc.nodeById(sel.base.nodeId);
+    if (node is! CodeBlockNode) return null;
+    final basePos = sel.base.nodePosition;
+    final extPos = sel.extent.nodePosition;
+    if (basePos is! TextNodePosition || extPos is! TextNodePosition) return null;
+    final a = basePos.offset, b = extPos.offset;
+    return (doc.indexOfId(node.id), node, a <= b ? a : b, a <= b ? b : a);
+  }
+
   static DocumentSelection _caret(String nodeId, int offset) =>
       DocumentSelection.collapsed(DocumentPosition.text(nodeId, offset));
 
@@ -113,6 +127,17 @@ abstract final class EditCommands {
     String text,
   ) {
     if (text.isEmpty) return null;
+    final cb = _singleCode(doc, sel);
+    if (cb != null) {
+      final (index, node, start, end) = cb;
+      final newCode = node.code.replaceRange(start, end, text);
+      return EditTransaction(
+        operations: [ReplaceNodeOp(index, node, node.copyWithCode(newCode))],
+        selectionBefore: sel,
+        selectionAfter: _caret(node.id, start + text.length),
+        tag: 'typing',
+      );
+    }
     final s = _single(doc, sel);
     if (s == null) {
       // A cross-block selection: delete it, then insert the text at the join.
@@ -159,6 +184,28 @@ abstract final class EditCommands {
   /// Deletes the selected range, or one grapheme before the caret. At the start
   /// of a block, merges with the previous text block.
   static EditTransaction? deleteBackward(Document doc, DocumentSelection? sel) {
+    final cb = _singleCode(doc, sel);
+    if (cb != null) {
+      final (index, node, start, end) = cb;
+      if (start == end) {
+        if (start == 0) return null; // at code start: nothing to delete here
+        final newCode = node.code.replaceRange(start - 1, start, '');
+        return EditTransaction(
+          operations: [ReplaceNodeOp(index, node, node.copyWithCode(newCode))],
+          selectionBefore: sel,
+          selectionAfter: _caret(node.id, start - 1),
+          tag: 'typing',
+        );
+      }
+      final newCode = node.code.replaceRange(start, end, '');
+      return EditTransaction(
+        operations: [ReplaceNodeOp(index, node, node.copyWithCode(newCode))],
+        selectionBefore: sel,
+        selectionAfter: _caret(node.id, start),
+        tag: 'typing',
+      );
+    }
+
     // A cross-block selection collapses to a single delete-and-merge.
     final crossBlock = deleteSelection(doc, sel);
     if (crossBlock != null) return crossBlock;
@@ -210,6 +257,18 @@ abstract final class EditCommands {
   /// Splits the current block at the caret. The trailing part becomes a new
   /// paragraph (so Enter after a heading drops you into body text).
   static EditTransaction? splitBlock(Document doc, DocumentSelection? sel) {
+    // Enter inside a code block inserts a literal newline; it never splits.
+    final cb = _singleCode(doc, sel);
+    if (cb != null) {
+      final (index, node, start, end) = cb;
+      final newCode = node.code.replaceRange(start, end, '\n');
+      return EditTransaction(
+        operations: [ReplaceNodeOp(index, node, node.copyWithCode(newCode))],
+        selectionBefore: sel,
+        selectionAfter: _caret(node.id, start + 1),
+        tag: 'typing',
+      );
+    }
     final s = _single(doc, sel);
     if (s == null) return null;
     final left = s.node.copyWithDelta(s.node.delta.slice(0, s.start));

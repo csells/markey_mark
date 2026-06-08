@@ -33,12 +33,12 @@ class DocumentText {
     final buf = StringBuffer();
     var cursor = 0;
     for (final node in doc.nodes) {
-      if (node is! TextBlockNode) continue;
+      final t = _editableTextOf(node);
+      if (t == null) continue;
       if (segs.isNotEmpty) {
         buf.write('\n');
         cursor += 1;
       }
-      final t = node.delta.toPlainText();
       final seg = _Segment(node.id, cursor, t.length);
       buf.write(t);
       cursor += t.length;
@@ -46,6 +46,14 @@ class DocumentText {
       byId[node.id] = seg;
     }
     return DocumentText._(buf.toString(), segs, byId);
+  }
+
+  /// The editable plain text a node contributes to the stream, or null if it
+  /// isn't a text-bearing/editable block.
+  static String? _editableTextOf(Node node) {
+    if (node is TextBlockNode) return node.delta.toPlainText();
+    if (node is CodeBlockNode) return node.code;
+    return null;
   }
 
   /// The flattened visible text of all text-bearing blocks.

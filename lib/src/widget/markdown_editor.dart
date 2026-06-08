@@ -265,22 +265,34 @@ class _MarkdownEditorState extends State<MarkdownEditor>
   /// unless the block's (immutable) delta or the width changed. Text shaping is
   /// the dominant cost; this keeps a steady-state edit to one layout per frame
   /// for the edited block and zero for the rest.
-  TextPainter _layoutFor(TextBlockNode node, double width) {
+  TextPainter _layoutFor(Node node, double width) {
     final style = _resolveStyle();
+    final Object contentKey =
+        node is CodeBlockNode ? node.code : (node as TextBlockNode).delta;
     final cached = _layoutCache[node.id];
+    final sameContent = node is CodeBlockNode
+        ? cached?.contentKey == contentKey
+        : identical(cached?.contentKey, contentKey);
     if (cached != null &&
         cached.width == width &&
-        identical(cached.delta, node.delta) &&
+        sameContent &&
         cached.styleVersion == _styleVersion) {
       return cached.painter;
     }
     cached?.painter.dispose();
-    final base = baseStyleFor(node, style);
-    final span = deltaToTextSpan(node.delta, base, style);
+    final TextSpan span;
+    if (node is CodeBlockNode) {
+      final codeStyle = style.codeTextStyle.copyWith(backgroundColor: null);
+      span = TextSpan(
+          children: _highlighter.highlight(node.code, node.language, codeStyle));
+    } else {
+      final n = node as TextBlockNode;
+      span = deltaToTextSpan(n.delta, baseStyleFor(n, style), style) as TextSpan;
+    }
     final painter = TextPainter(text: span, textDirection: TextDirection.ltr)
       ..layout(maxWidth: width);
     _layoutCache[node.id] =
-        _CachedLayout(width, node.delta, painter, _styleVersion);
+        _CachedLayout(width, contentKey, painter, _styleVersion);
     return painter;
   }
 
@@ -503,7 +515,7 @@ class _MarkdownEditorState extends State<MarkdownEditor>
 
   // ── Gestures ─────────────────────────────────────────────────────────────
 
-  void _placeCaret(TextBlockNode node, Offset localPos, double width) {
+  void _placeCaret(Node node, Offset localPos, double width) {
     if (widget.readOnly) return;
     final tp = _layoutFor(node, width);
     final pos = tp.getPositionForOffset(localPos);
@@ -522,7 +534,7 @@ class _MarkdownEditorState extends State<MarkdownEditor>
   /// can move into a different block (cross-block selection). Falls back to the
   /// gesture's owning [node] when the pointer is between blocks.
   void _extendSelectionGlobal(
-      TextBlockNode node, DragUpdateDetails d, double width) {
+      Node node, DragUpdateDetails d, double width) {
     if (widget.readOnly) return;
     final hit = _blockAtGlobal(d.globalPosition);
     final (target, offset) = hit ?? _localHit(node, d.localPosition, width);
@@ -534,16 +546,16 @@ class _MarkdownEditorState extends State<MarkdownEditor>
     ));
   }
 
-  (String, int) _localHit(TextBlockNode node, Offset localPos, double width) {
+  (String, int) _localHit(Node node, Offset localPos, double width) {
     final tp = _layoutFor(node, width);
     return (node.id, tp.getPositionForOffset(localPos).offset);
   }
 
-  /// Returns the (nodeId, text offset) for the text block whose painted area
-  /// contains [globalPos], or null if none does.
+  /// Returns the (nodeId, text offset) for the editable block (text or code)
+  /// whose painted area contains [globalPos], or null if none does.
   (String, int)? _blockAtGlobal(Offset globalPos) {
     for (final n in _c.document.nodes) {
-      if (n is! TextBlockNode) continue;
+      if (n is! TextBlockNode && n is! CodeBlockNode) continue;
       final box = _paintKeys[n.id]?.currentContext?.findRenderObject()
           as RenderBox?;
       if (box == null || !box.attached) continue;
@@ -1303,7 +1315,6 @@ class _MarkdownEditorState extends State<MarkdownEditor>
 
   Widget _buildCodeBlock(CodeBlockNode node, EditorStyle style) {
     final codeStyle = style.codeTextStyle.copyWith(backgroundColor: null);
-    final spans = _highlighter.highlight(node.code, node.language, codeStyle);
     return Container(
       key: ValueKey('markey-code-${node.id}'),
       width: double.infinity,
@@ -1326,19 +1337,83 @@ class _MarkdownEditorState extends State<MarkdownEditor>
                 ),
               ),
             ),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: RichText(text: TextSpan(children: spans)),
-          ),
+          // Read-only: highlighted display. Editable: unified caret/selection so
+          // the code block is part of the one editor (not a separate field).
+          if (widget.readOnly)
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: RichText(
+                  text: TextSpan(
+                      children: _highlighter.highlight(
+                          node.code, node.language, codeStyle))),
+            )
+          else
+            _codeContent(node, style),
         ],
       ),
     );
   }
 
+  /// Editable code content with the unified caret/selection (mirrors
+  /// [_textContent] but over the highlighted code; edits route through the same
+  /// command pipeline via the document stream).
+  Widget _codeContent(CodeBlockNode node, EditorStyle style) {
+    final sel = _c.selection;
+    TextSelection? localSelection;
+    int? caretOffset;
+    if (sel != null &&
+        sel.base.nodeId == node.id &&
+        sel.extent.nodeId == node.id) {
+      final b = (sel.base.nodePosition as TextNodePosition).offset;
+      final e = (sel.extent.nodePosition as TextNodePosition).offset;
+      if (b == e) {
+        caretOffset = b;
+      } else {
+        localSelection = TextSelection(baseOffset: b, extentOffset: e);
+      }
+    } else if (sel != null && !sel.isCollapsed) {
+      localSelection = _crossBlockLocalSelection(node, sel);
+    }
+    final showCaret = _focusNode.hasFocus && caretOffset != null;
+    return LayoutBuilder(
+      key: ValueKey('markey-block-${node.id}'),
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final tp = _layoutFor(node, width);
+        final height =
+            math.max(tp.height, style.codeTextStyle.fontSize ?? 16);
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown: (d) => _placeCaret(node, d.localPosition, width),
+          onPanStart: (d) {
+            if (_mouseSelecting) return;
+            _placeCaret(node, d.localPosition, width);
+          },
+          onPanUpdate: (d) {
+            if (_mouseSelecting) return;
+            _extendSelectionGlobal(node, d, width);
+          },
+          child: CustomPaint(
+            key: _paintKeyFor(node.id),
+            size: Size(width, height),
+            painter: _BlockPainter(
+              textPainter: tp,
+              selection: localSelection,
+              caretOffset: caretOffset,
+              showCaret: showCaret,
+              caretBlink: _caretBlink,
+              selectionColor: style.selectionColor,
+              caretColor: style.caretColor,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
   /// The portion of a cross-block [sel] that falls within [node], as a local
   /// [TextSelection], or null when [node] lies outside the selected range.
-  TextSelection? _crossBlockLocalSelection(
-      TextBlockNode node, DocumentSelection sel) {
+  TextSelection? _crossBlockLocalSelection(Node node, DocumentSelection sel) {
     final doc = _c.document;
     final iBase = doc.indexOfId(sel.base.nodeId);
     final iExt = doc.indexOfId(sel.extent.nodeId);
@@ -1353,7 +1428,9 @@ class _MarkdownEditorState extends State<MarkdownEditor>
         p.nodePosition is TextNodePosition
             ? (p.nodePosition as TextNodePosition).offset
             : 0;
-    final len = node.delta.length;
+    final len = node is CodeBlockNode
+        ? node.code.length
+        : (node as TextBlockNode).delta.length;
     final from = iNode == startIdx ? offsetOf(startPos) : 0;
     final to = iNode == endIdx ? offsetOf(endPos) : len;
     return TextSelection(baseOffset: from, extentOffset: to);
@@ -1578,9 +1655,10 @@ class _MarkdownSourceController extends TextEditingController {
 
 /// A cached, laid-out block text layout (see `_MarkdownEditorState._layoutFor`).
 class _CachedLayout {
-  _CachedLayout(this.width, this.delta, this.painter, this.styleVersion);
+  _CachedLayout(this.width, this.contentKey, this.painter, this.styleVersion);
   final double width;
-  final Delta delta;
+  // Delta (identity) for text blocks, or the code String for code blocks.
+  final Object contentKey;
   final TextPainter painter;
   final int styleVersion;
 }
