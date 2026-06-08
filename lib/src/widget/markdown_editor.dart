@@ -316,9 +316,65 @@ class _MarkdownEditorState extends State<MarkdownEditor>
     return first is TextBlockNode ? first : null;
   }
 
+  /// When the caret is in a table cell, returns (tableId, row, col); else null.
+  /// A cell is a contextual sub-editor: the IME windows to just that cell.
+  (String, int, int)? get _activeCell {
+    final ext = _c.selection?.extent;
+    final np = ext?.nodePosition;
+    if (np is TableCellPosition) return (ext!.nodeId, np.row, np.col);
+    return null;
+  }
+
+  Delta? _cellDelta((String, int, int) cell) {
+    final t = _c.document.nodeById(cell.$1);
+    if (t is! TableNode) return null;
+    return t.rows[cell.$2][cell.$3];
+  }
+
+  /// Applies an IME edit (cell-local offsets) to the active cell through the
+  /// unified command pipeline.
+  void _applyCellEdit(
+      (String, int, int) cell, int start, int deleted, String inserted) {
+    final (id, r, col) = cell;
+    _c.setSelection(DocumentSelection(
+      base: DocumentPosition(nodeId: id, nodePosition: TableCellPosition(r, col, start)),
+      extent: DocumentPosition(
+          nodeId: id, nodePosition: TableCellPosition(r, col, start + deleted)),
+    ));
+    if (inserted.isEmpty) {
+      _c.deleteBackward();
+    } else {
+      _c.insertText(inserted);
+    }
+  }
+
   /// Mirrors the *whole document* to the IME as one text stream (§13 — one
   /// editor): the OS sees a single field, and selection is in global offsets.
   void _syncImeFromModel() {
+    // When editing a table cell, the IME windows to that cell's text.
+    final cell = _activeCell;
+    if (cell != null) {
+      final delta = _cellDelta(cell);
+      if (delta != null) {
+        final text = delta.toPlainText();
+        final sel = _c.selection!;
+        final bp = sel.base.nodePosition;
+        final ep = sel.extent.nodePosition;
+        final base = (bp is TableCellPosition && bp.row == cell.$2 && bp.col == cell.$3)
+            ? bp.offset
+            : text.length;
+        final extent = ep is TableCellPosition ? ep.offset : text.length;
+        _imeValue = TextEditingValue(
+          text: text,
+          selection: TextSelection(
+            baseOffset: base.clamp(0, text.length),
+            extentOffset: extent.clamp(0, text.length),
+          ),
+        );
+        if (_connection?.attached ?? false) _connection!.setEditingState(_imeValue);
+        return;
+      }
+    }
     final dt = DocumentText.of(_c.document);
     final text = dt.text;
     final sel = _c.selection;
@@ -378,6 +434,29 @@ class _MarkdownEditorState extends State<MarkdownEditor>
 
   @override
   void updateEditingValue(TextEditingValue value) {
+    // Table cell window: edits map to the active cell.
+    final cell = _activeCell;
+    if (cell != null) {
+      final old = _imeValue.text;
+      if (value.text == old) {
+        final s = value.selection;
+        if (s.isValid) {
+          _c.setSelection(DocumentSelection(
+            base: DocumentPosition(
+                nodeId: cell.$1,
+                nodePosition: TableCellPosition(cell.$2, cell.$3, s.baseOffset)),
+            extent: DocumentPosition(
+                nodeId: cell.$1,
+                nodePosition: TableCellPosition(cell.$2, cell.$3, s.extentOffset)),
+          ));
+        }
+        _imeValue = value;
+        return;
+      }
+      final (start, deleted, inserted) = _diff(old, value.text);
+      _applyCellEdit(cell, start, deleted, inserted);
+      return;
+    }
     final dt = DocumentText.of(_c.document);
     if (!dt.coversAny) {
       _imeValue = value;
@@ -405,6 +484,13 @@ class _MarkdownEditorState extends State<MarkdownEditor>
   void updateEditingValueWithDeltas(List<TextEditingDelta> deltas) {
     for (final delta in deltas) {
       _composing = delta.composing;
+      // Table cell window: cell-local offsets map to the active cell.
+      final cell = _activeCell;
+      if (cell != null) {
+        final edit = editFromDelta(delta);
+        if (edit != null) _applyCellEdit(cell, edit.$1, edit.$2, edit.$3);
+        continue;
+      }
       final dt = DocumentText.of(_c.document); // re-map: the model just changed
       if (!dt.coversAny) continue;
       final edit = editFromDelta(delta);
@@ -878,7 +964,7 @@ class _MarkdownEditorState extends State<MarkdownEditor>
     if (node is TableNode) {
       return widget.readOnly
           ? _buildTable(node, style)
-          : _EditableTable(node: node, style: style, controller: _c);
+          : _buildEditableTable(node, style);
     }
     if (node is MermaidNode) {
       return widget.diagramRenderer.build(context, node, style);
@@ -1229,6 +1315,144 @@ class _MarkdownEditorState extends State<MarkdownEditor>
         ],
       ),
     );
+  }
+
+  /// An editable table whose cells are sub-editors of the one editor: each cell
+  /// renders with the shared caret/selection (no per-cell TextField) and edits
+  /// through the unified command pipeline via [TableCellPosition].
+  Widget _buildEditableTable(TableNode node, EditorStyle style) {
+    final borderColor = style.caretColor.withValues(alpha: 0.25);
+    return Container(
+      key: ValueKey('markey-block-${node.id}'),
+      alignment: Alignment.centerLeft,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Table(
+            defaultColumnWidth: const FixedColumnWidth(150),
+            border: TableBorder.all(color: borderColor),
+            children: [
+              for (var r = 0; r < node.rowCount; r++)
+                TableRow(
+                  decoration: r == 0
+                      ? BoxDecoration(color: borderColor.withValues(alpha: 0.12))
+                      : null,
+                  children: [
+                    for (var c = 0; c < node.columnCount; c++)
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 6, vertical: 4),
+                        child: _cellContent(node, r, c, style),
+                      ),
+                  ],
+                ),
+            ],
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              IconButton(
+                key: Key('markey-table-addrow-${node.id}'),
+                tooltip: 'Add row',
+                iconSize: 18,
+                icon: const Icon(Icons.add_box_outlined),
+                onPressed: () => _c.addTableRow(node.id),
+              ),
+              IconButton(
+                key: Key('markey-table-addcol-${node.id}'),
+                tooltip: 'Add column',
+                iconSize: 18,
+                icon: const Icon(Icons.add_box),
+                onPressed: () => _c.addTableColumn(node.id),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _cellContent(TableNode table, int r, int c, EditorStyle style) {
+    final delta = table.rows[r][c];
+    final base = r == 0
+        ? style.baseTextStyle.copyWith(fontWeight: FontWeight.bold)
+        : style.baseTextStyle;
+    final sel = _c.selection;
+    TextSelection? localSelection;
+    int? caretOffset;
+    if (sel != null) {
+      final bp = sel.base.nodePosition;
+      final ep = sel.extent.nodePosition;
+      final baseHere = sel.base.nodeId == table.id &&
+          bp is TableCellPosition &&
+          bp.row == r &&
+          bp.col == c;
+      final extHere = sel.extent.nodeId == table.id &&
+          ep is TableCellPosition &&
+          ep.row == r &&
+          ep.col == c;
+      if (baseHere && extHere) {
+        final b = bp.offset;
+        final e = ep.offset;
+        if (b == e) {
+          caretOffset = b;
+        } else {
+          localSelection = TextSelection(baseOffset: b, extentOffset: e);
+        }
+      }
+    }
+    final showCaret = _focusNode.hasFocus && caretOffset != null;
+    final cacheKey = '${table.id}:$r:$c';
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final width = constraints.maxWidth;
+        final tp = _layoutForCellDelta(cacheKey, delta, base, width);
+        final height = math.max(tp.height, base.fontSize ?? 16);
+        return GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTapDown: (d) => _placeCellCaret(table.id, r, c, d.localPosition, tp),
+          child: CustomPaint(
+            key: Key('markey-cell-${table.id}-$r-$c'),
+            size: Size(width, height),
+            painter: _BlockPainter(
+              textPainter: tp,
+              selection: localSelection,
+              caretOffset: caretOffset,
+              showCaret: showCaret,
+              caretBlink: _caretBlink,
+              selectionColor: style.selectionColor,
+              caretColor: style.caretColor,
+            ),
+          ),
+        );
+      },
+    );
+  }
+
+  TextPainter _layoutForCellDelta(
+      String cacheKey, Delta delta, TextStyle base, double width) {
+    final cached = _layoutCache[cacheKey];
+    if (cached != null &&
+        cached.width == width &&
+        identical(cached.contentKey, delta) &&
+        cached.styleVersion == _styleVersion) {
+      return cached.painter;
+    }
+    cached?.painter.dispose();
+    final span = deltaToTextSpan(delta, base, _resolveStyle()) as TextSpan;
+    final painter = TextPainter(text: span, textDirection: TextDirection.ltr)
+      ..layout(maxWidth: width);
+    _layoutCache[cacheKey] = _CachedLayout(width, delta, painter, _styleVersion);
+    return painter;
+  }
+
+  void _placeCellCaret(
+      String tableId, int r, int c, Offset localPos, TextPainter tp) {
+    if (widget.readOnly) return;
+    _focusNode.requestFocus();
+    final off = tp.getPositionForOffset(localPos).offset;
+    _c.placeCaretAt(DocumentPosition(
+        nodeId: tableId, nodePosition: TableCellPosition(r, c, off)));
   }
 
   Widget _buildMath(MathBlockNode node, EditorStyle style) {
@@ -1770,126 +1994,6 @@ class _BlockPainter extends CustomPainter {
       old.showCaret != showCaret ||
       old.selectionColor != selectionColor ||
       old.caretColor != caretColor;
-}
-
-// ── Editable table ─────────────────────────────────────────────────────────
-
-TextAlign _tableTextAlign(TableAlign a) => switch (a) {
-      TableAlign.center => TextAlign.center,
-      TableAlign.right => TextAlign.right,
-      _ => TextAlign.left,
-    };
-
-/// An editable GFM table: each cell is a [TextField] writing back to the model;
-/// buttons append rows/columns. Cell controllers persist across rebuilds so the
-/// caret is stable while typing.
-class _EditableTable extends StatefulWidget {
-  const _EditableTable(
-      {required this.node, required this.style, required this.controller});
-  final TableNode node;
-  final EditorStyle style;
-  final MarkdownEditorController controller;
-
-  @override
-  State<_EditableTable> createState() => _EditableTableState();
-}
-
-class _EditableTableState extends State<_EditableTable> {
-  final Map<String, TextEditingController> _ctl = {};
-  final Map<String, FocusNode> _fn = {};
-
-  String _key(int r, int c) => '${r}_$c';
-
-  @override
-  void dispose() {
-    for (final c in _ctl.values) {
-      c.dispose();
-    }
-    for (final f in _fn.values) {
-      f.dispose();
-    }
-    super.dispose();
-  }
-
-  TextEditingController _cellController(int r, int c) {
-    final k = _key(r, c);
-    final text = widget.controller.cellMarkdown(widget.node.id, r, c);
-    final ctl = _ctl.putIfAbsent(k, () => TextEditingController(text: text));
-    final fn = _fn.putIfAbsent(k, () => FocusNode());
-    if (!fn.hasFocus && ctl.text != text) ctl.text = text;
-    return ctl;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final node = widget.node;
-    final style = widget.style;
-    final borderColor = style.caretColor.withValues(alpha: 0.25);
-    return Container(
-      key: ValueKey('markey-block-${node.id}'),
-      alignment: Alignment.centerLeft,
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Table(
-            defaultColumnWidth: const FixedColumnWidth(150),
-            border: TableBorder.all(color: borderColor),
-            children: [
-              for (var r = 0; r < node.rowCount; r++)
-                TableRow(
-                  decoration: r == 0
-                      ? BoxDecoration(color: borderColor.withValues(alpha: 0.12))
-                      : null,
-                  children: [
-                    for (var c = 0; c < node.columnCount; c++)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 2),
-                        child: TextField(
-                          key: Key('markey-cell-${node.id}-$r-$c'),
-                          controller: _cellController(r, c),
-                          focusNode: _fn[_key(r, c)],
-                          textAlign: _tableTextAlign(node.alignments[c]),
-                          style: r == 0
-                              ? style.baseTextStyle
-                                  .copyWith(fontWeight: FontWeight.bold)
-                              : style.baseTextStyle,
-                          decoration: const InputDecoration(
-                            isDense: true,
-                            border: InputBorder.none,
-                            contentPadding: EdgeInsets.symmetric(vertical: 6),
-                          ),
-                          onChanged: (t) =>
-                              widget.controller.updateTableCell(node.id, r, c, t),
-                        ),
-                      ),
-                  ],
-                ),
-            ],
-          ),
-          Row(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              IconButton(
-                key: Key('markey-table-addrow-${node.id}'),
-                tooltip: 'Add row',
-                iconSize: 18,
-                icon: const Icon(Icons.add_box_outlined),
-                onPressed: () => widget.controller.addTableRow(node.id),
-              ),
-              IconButton(
-                key: Key('markey-table-addcol-${node.id}'),
-                tooltip: 'Add column',
-                iconSize: 18,
-                icon: const Icon(Icons.add_box),
-                onPressed: () => widget.controller.addTableColumn(node.id),
-              ),
-            ],
-          ),
-        ],
-      ),
-    );
-  }
 }
 
 // ── Selection bubble toolbar ───────────────────────────────────────────────

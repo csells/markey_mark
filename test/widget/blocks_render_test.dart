@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:markey_mark/markey_mark.dart';
@@ -144,7 +145,28 @@ void main() {
       (tester) async {
     final c = await pump(tester, '| A | B |\n| --- | --- |\n| 1 | 2 |');
     final id = c.document.nodes.first.id;
-    await tester.enterText(find.byKey(Key('markey-cell-$id-0-0')), 'Name');
+    // Tap to focus, select the cell's content, then replace it via the unified
+    // IME (cells are caret-based sub-editors, not TextFields).
+    await tester.tap(find.byKey(Key('markey-cell-$id-0-0')));
+    await tester.pump();
+    c.setSelection(DocumentSelection(
+      base: DocumentPosition(
+          nodeId: id, nodePosition: const TableCellPosition(0, 0, 0)),
+      extent: DocumentPosition(
+          nodeId: id, nodePosition: const TableCellPosition(0, 0, 1)),
+    ));
+    await tester.pump();
+    final client =
+        tester.state(find.byType(MarkdownEditor)) as DeltaTextInputClient;
+    client.updateEditingValueWithDeltas(const [
+      TextEditingDeltaReplacement(
+        oldText: 'A',
+        replacementText: 'Name',
+        replacedRange: TextRange(start: 0, end: 1),
+        selection: TextSelection.collapsed(offset: 4),
+        composing: TextRange.empty,
+      ),
+    ]);
     await tester.pump();
     expect((c.document.nodes.first as TableNode).cellText(0, 0), 'Name');
     await teardown(tester);
