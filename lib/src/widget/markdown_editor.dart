@@ -18,6 +18,7 @@ import '../model/document_text.dart';
 import '../model/node.dart';
 import '../model/position.dart';
 import '../model/selection.dart';
+import '../render/bidi.dart';
 import '../render/code_highlight.dart';
 import '../render/code_layout.dart';
 import '../render/delta_text.dart';
@@ -322,8 +323,13 @@ class _MarkdownEditorState extends State<MarkdownEditor>
     cached?.painter.dispose();
     final span =
         deltaToTextSpan(node.delta, baseStyleFor(node, style), style) as TextSpan;
-    final painter = TextPainter(text: span, textDirection: TextDirection.ltr)
-      ..layout(maxWidth: width);
+    // Base direction from the first strong character, so RTL scripts
+    // (Arabic/Hebrew) render and align correctly; TextPainter then handles
+    // intra-line bidi reordering, caret geometry and selection rects.
+    final painter = TextPainter(
+      text: span,
+      textDirection: resolveBaseDirection(node.delta.toPlainText()),
+    )..layout(maxWidth: width);
     _layoutCache[node.id] =
         _CachedLayout(width, contentKey, painter, _styleVersion);
     return painter;
@@ -1943,7 +1949,11 @@ class _MarkdownEditorState extends State<MarkdownEditor>
     }
     final showCaret = _focusNode.hasFocus && caretOffset != null;
 
-    return LayoutBuilder(
+    return Directionality(
+      // Per-paragraph base direction so RTL scripts align right and child
+      // affordances (bullets, checkboxes) follow; the painter uses the same.
+      textDirection: resolveBaseDirection(node.delta.toPlainText()),
+      child: LayoutBuilder(
       key: ValueKey('markey-block-${node.id}'),
       builder: (context, constraints) {
         final width = constraints.maxWidth;
@@ -1978,6 +1988,7 @@ class _MarkdownEditorState extends State<MarkdownEditor>
           ),
         );
       },
+      ),
     );
   }
 

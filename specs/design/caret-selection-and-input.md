@@ -172,14 +172,24 @@ wiring an overlay + drag handles on touch platforms. This directly repays the
 "`EditableText` gives mobile handles for free" debt without giving up custom
 rendering.
 
-## 14.8 Bidirectional / RTL text (designed — later)
+## 14.8 Bidirectional / RTL text (implemented — base direction)
 
-`TextDirection.ltr` is currently hardcoded. The path: thread a per-paragraph
-`TextDirection` (auto-detected from first strong character, overridable) into
-`TextPainter`/`CodeLayout`, drive caret affinity through `TextPosition.affinity`
-(already on `TextNodePosition`), and let the motor consult visual order for
-left/right at bidi boundaries. The model is ready (affinity exists); the layout
-and motor need direction-awareness.
+Per-paragraph **base direction** is detected from the first strong directional
+character (UAX #9 P2/P3) by `resolveBaseDirection` (`render/bidi.dart`,
+unit-tested across Latin/Arabic/Hebrew/CJK and neutral-prefix cases) and threaded
+into the text-block `TextPainter` and a wrapping `Directionality`. So an Arabic
+or Hebrew paragraph lays out and aligns right-to-left while an English paragraph
+stays LTR, **each block independently** in a mixed document — and Flutter's
+`TextPainter` handles intra-line bidi reordering, caret geometry, and selection
+rects for free once it knows the base direction. Gated by `rtl_test.dart`
+(per-block direction + caret still works) and `text_direction_test.dart`.
+
+**Next bidi refinement:** caret motion is still *logical* (left = previous
+offset). In an RTL run, "best in class" wants *visual* left/right (left =
+visually-left glyph) at bidi boundaries; `TextNodePosition.affinity` already
+exists to carry the boundary side, and the motor can consult
+`TextPainter.getBoxesForSelection`/visual order to flip direction inside RTL
+runs. Tracked.
 
 ## 14.9 Coverage posture
 
