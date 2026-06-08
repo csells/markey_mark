@@ -154,23 +154,35 @@ word-granularity cursor moves), wrap the surface in a small
 `SingleChildRenderObjectWidget` whose render object sets
 `config.textSelection` and `onMoveCursorForward/BackwardByWord`. Tracked.
 
-## 14.7 Mobile handles, magnifier & toolbar (designed — next) — reuse Flutter overlays
+## 14.7 Mobile handles & magnifier (implemented)
 
-All public and reusable by a custom editor that supplies its own geometry
-(`package:flutter/widgets.dart` + `material.dart`):
+On touch platforms (Android/iOS) a non-collapsed selection now shows two
+draggable endpoint handles and a magnifier, reusing Flutter visuals rather than
+reimplementing them:
 
-| Reuse | Provide |
-| --- | --- |
-| `SelectionOverlay` | `selectionEndpoints` (global handle positions from our layouts), `lineHeightAtStart/End`, three `LayerLink`s, a `TextSelectionDelegate` |
-| `MaterialTextSelectionControls` / `CupertinoTextSelectionControls` | a `TextSelectionDelegate` (copy/cut/paste/selectAll — we have these on the controller) |
-| `AdaptiveTextSelectionToolbar(.editable)` via `contextMenuBuilder` | the selection rect + button callbacks (replaces the deprecated `buildToolbar`) |
-| `TextMagnifierConfiguration` + `MagnifierInfo` + `MagnifierController` | during a drag, push `MagnifierInfo(globalGesturePosition, caretRect, fieldBounds, currentLineBoundaries)` (all derivable from our painters) |
+- **Handles**: `MaterialTextSelectionControls.buildHandle/getHandleAnchor/
+  getHandleSize` for the native look, positioned in the app `Overlay` at the
+  selection endpoints. Endpoints are computed in global coordinates from the
+  per-block paint keys (`box.localToGlobal(caretBottom)`) — the same
+  global-follow trick `SelectionOverlay` uses internally — ordered by document
+  position. Dragging a handle hit-tests the document (`_blockAtGlobal`, probing
+  one line up since the handle hangs below the caret) and moves that end of the
+  selection while the other stays anchored.
+- **Magnifier**: a `RawMagnifier` loupe shown above the finger during a handle
+  drag, magnifying the editor beneath.
+- The overlay entry is inserted/updated/removed post-frame as the selection,
+  focus, and mode change, and torn down in `dispose`.
 
-We already compute caret rects and selection boxes (`_BlockPainter`,
-`CodeLayout.getBoxesForSelection`), so the geometry inputs exist; the work is
-wiring an overlay + drag handles on touch platforms. This directly repays the
-"`EditableText` gives mobile handles for free" debt without giving up custom
-rendering.
+Gated by `selection_handles_test.dart` (`TargetPlatformVariant` android+iOS):
+handles appear for a range and not for a caret; dragging the end handle shrinks
+the selection; the magnifier appears during the drag and disappears after.
+
+**Next handle refinements:** handles don't yet re-follow on scroll (positions
+update on selection change, not on every scroll tick — `LayerLink` +
+`CompositedTransformFollower` would make them live), and the existing
+range-selection bubble (`_SelectionToolbar`) / long-press context menu remain
+the toolbar; consolidating onto `AdaptiveTextSelectionToolbar.editable` via a
+`contextMenuBuilder` is tracked.
 
 ## 14.8 Bidirectional / RTL text (implemented — base direction)
 

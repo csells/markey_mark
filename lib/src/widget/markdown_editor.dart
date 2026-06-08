@@ -206,6 +206,8 @@ class _MarkdownEditorState extends State<MarkdownEditor>
     _replaceController.dispose();
     _connection?.close();
     _hideContextMenu();
+    _handlesEntry?.remove();
+    _handlesEntry = null;
     _sourceController.removeListener(_onSourceSelectionChanged);
     _disposeLayoutCache();
     super.dispose();
@@ -243,6 +245,9 @@ class _MarkdownEditorState extends State<MarkdownEditor>
     // Re-arm the slash menu once the `/` query is gone.
     if (_activeSlashQuery() == null) _slashSuppressed = false;
     if (mounted) setState(_syncImeFromModel);
+    // Touch handles follow the selection (post-frame, so paint keys resolve).
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _syncSelectionHandles());
   }
 
   /// The slash-menu query if the focused active block is a paragraph matching
@@ -285,6 +290,8 @@ class _MarkdownEditorState extends State<MarkdownEditor>
       _stopBlink();
     }
     if (mounted) setState(() {});
+    WidgetsBinding.instance
+        .addPostFrameCallback((_) => _syncSelectionHandles());
   }
 
   // ── Caret blink (only runs while focused — no idle CPU/timer otherwise) ───
@@ -907,6 +914,164 @@ class _MarkdownEditorState extends State<MarkdownEditor>
       if (n is TextBlockNode || n is CodeBlockNode) return n;
     }
     return null;
+  }
+
+  // ── Touch selection handles + magnifier ──────────────────────────────────
+  //
+  // EditableText draws draggable handles, a magnifier, and the toolbar for
+  // free; a hand-painted editor must provide them. We reuse Material's handle
+  // visuals (`MaterialTextSelectionControls`) and `RawMagnifier`, positioned in
+  // the app Overlay at the selection endpoints (read from the per-block paint
+  // keys, in global coordinates — the same trick `SelectionOverlay` uses).
+
+  OverlayEntry? _handlesEntry;
+  final MaterialTextSelectionControls _handleControls =
+      MaterialTextSelectionControls();
+
+  /// Global position of the active handle drag (drives the magnifier), or null.
+  Offset? _handleDragGlobal;
+
+  bool get _isTouchPlatform {
+    final p = Theme.of(context).platform;
+    return p == TargetPlatform.android || p == TargetPlatform.iOS;
+  }
+
+  /// Inserts/updates/removes the selection-handle overlay to match the current
+  /// selection. Called post-frame (after layout) so the paint keys resolve.
+  void _syncSelectionHandles() {
+    if (!mounted) return;
+    final sel = _c.selection;
+    final show = !widget.readOnly &&
+        _focusNode.hasFocus &&
+        _isTouchPlatform &&
+        sel != null &&
+        !sel.isCollapsed &&
+        _c.mode == EditorMode.wysiwyg;
+    if (!show) {
+      _handlesEntry?.remove();
+      _handlesEntry = null;
+      return;
+    }
+    if (_handlesEntry == null) {
+      _handlesEntry = OverlayEntry(builder: _buildHandlesOverlay);
+      Overlay.of(context).insert(_handlesEntry!);
+    } else {
+      _handlesEntry!.markNeedsBuild();
+    }
+  }
+
+  /// The global caret point (bottom of the line) + line height for [pos].
+  (Offset, double)? _globalCaret(DocumentPosition pos) {
+    final box = _paintKeys[pos.nodeId]?.currentContext?.findRenderObject()
+        as RenderBox?;
+    if (box == null || !box.attached) return null;
+    final geo = _caretLocalGeometry(pos);
+    if (geo == null) return null;
+    final (local, height) = geo;
+    return (box.localToGlobal(local + Offset(0, height)), height);
+  }
+
+  int _comparePositions(DocumentPosition a, DocumentPosition b) {
+    final ia = _c.document.indexOfId(a.nodeId);
+    final ib = _c.document.indexOfId(b.nodeId);
+    if (ia != ib) return ia.compareTo(ib);
+    int o(NodePosition p) => p is TextNodePosition
+        ? p.offset
+        : p is TableCellPosition
+            ? p.offset
+            : 0;
+    return o(a.nodePosition).compareTo(o(b.nodePosition));
+  }
+
+  Widget _buildHandlesOverlay(BuildContext context) {
+    final sel = _c.selection;
+    if (sel == null || sel.isCollapsed) return const SizedBox.shrink();
+    final startIsBase = _comparePositions(sel.base, sel.extent) <= 0;
+    final startPos = startIsBase ? sel.base : sel.extent;
+    final endPos = startIsBase ? sel.extent : sel.base;
+    final start = _globalCaret(startPos);
+    final end = _globalCaret(endPos);
+    if (start == null || end == null) return const SizedBox.shrink();
+
+    final children = <Widget>[
+      _handleWidget(const Key('markey_handle_start'),
+          TextSelectionHandleType.left, start.$1, start.$2, isStart: true),
+      _handleWidget(const Key('markey_handle_end'),
+          TextSelectionHandleType.right, end.$1, end.$2, isStart: false),
+    ];
+    if (_handleDragGlobal != null) {
+      children.add(_magnifierWidget(_handleDragGlobal!));
+    }
+    return Stack(children: children);
+  }
+
+  Widget _handleWidget(Key key, TextSelectionHandleType type, Offset globalPos,
+      double lineHeight,
+      {required bool isStart}) {
+    final anchor = _handleControls.getHandleAnchor(type, lineHeight);
+    final size = _handleControls.getHandleSize(lineHeight);
+    return Positioned(
+      left: globalPos.dx - anchor.dx,
+      top: globalPos.dy - anchor.dy,
+      child: GestureDetector(
+        key: key,
+        behavior: HitTestBehavior.translucent,
+        onPanStart: (d) {
+          setState(() => _handleDragGlobal = d.globalPosition);
+          _handlesEntry?.markNeedsBuild();
+        },
+        onPanUpdate: (d) {
+          _dragHandle(d.globalPosition, lineHeight, isStart: isStart);
+          setState(() => _handleDragGlobal = d.globalPosition);
+          _handlesEntry?.markNeedsBuild();
+        },
+        onPanEnd: (_) {
+          setState(() => _handleDragGlobal = null);
+          _handlesEntry?.markNeedsBuild();
+        },
+        child: SizedBox(
+          width: size.width,
+          height: size.height,
+          child: _handleControls.buildHandle(
+              context, type, lineHeight, () {}),
+        ),
+      ),
+    );
+  }
+
+  /// A loupe centered above the drag point that magnifies the editor beneath it.
+  Widget _magnifierWidget(Offset global) {
+    const magnifierSize = Size(80, 48);
+    return Positioned(
+      left: global.dx - magnifierSize.width / 2,
+      top: global.dy - magnifierSize.height - 24,
+      child: IgnorePointer(
+        child: RawMagnifier(
+          key: const Key('markey_magnifier'),
+          size: magnifierSize,
+          magnificationScale: 1.5,
+          decoration: const MagnifierDecoration(
+            shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.all(Radius.circular(8))),
+          ),
+          focalPointOffset: Offset(0, magnifierSize.height / 2 + 24),
+        ),
+      ),
+    );
+  }
+
+  void _dragHandle(Offset global, double lineHeight, {required bool isStart}) {
+    // The handle hangs below the caret line, so probe a line up to hit the text.
+    final hit = _blockAtGlobal(global - Offset(0, lineHeight));
+    final sel = _c.selection;
+    if (hit == null || sel == null) return;
+    final pos = DocumentPosition.text(hit.$1, hit.$2);
+    final startIsBase = _comparePositions(sel.base, sel.extent) <= 0;
+    // Move the dragged end; keep the other fixed.
+    final movingBase = isStart == startIsBase;
+    _c.setSelection(movingBase
+        ? DocumentSelection(base: pos, extent: sel.extent)
+        : DocumentSelection(base: sel.base, extent: pos));
   }
 
   // ── Find & replace ─────────────────────────────────────────────────────
