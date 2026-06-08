@@ -223,6 +223,48 @@ void main() {
     });
   });
 
+  group('Word/line/document selection', () {
+    test('selectWordAt selects the word under a position', () {
+      final c = MarkdownEditorController(markdown: 'foo bar baz');
+      final id = c.document.nodes.first.id;
+      c.selectWordAt(DocumentPosition.text(id, 5)); // inside "bar"
+      expect((c.selection!.base.nodePosition as TextNodePosition).offset, 4);
+      expect((c.selection!.extent.nodePosition as TextNodePosition).offset, 7);
+      c.dispose();
+    });
+
+    test('selectLineAt selects the whole logical line', () {
+      final c = MarkdownEditorController(markdown: 'hello world');
+      final id = c.document.nodes.first.id;
+      c.selectLineAt(DocumentPosition.text(id, 3));
+      expect((c.selection!.base.nodePosition as TextNodePosition).offset, 0);
+      expect((c.selection!.extent.nodePosition as TextNodePosition).offset, 11);
+      c.dispose();
+    });
+
+    test('word move by keyboard granularity extends the selection', () {
+      final c = MarkdownEditorController(markdown: 'alpha beta gamma');
+      final id = c.document.nodes.first.id;
+      c.setSelection(caret(id, 0));
+      c.moveSelection(
+          forward: true, granularity: CaretGranularity.word, extend: true);
+      expect(c.selection!.isCollapsed, isFalse);
+      expect((c.selection!.base.nodePosition as TextNodePosition).offset, 0);
+      expect((c.selection!.extent.nodePosition as TextNodePosition).offset, 5);
+      c.dispose();
+    });
+
+    test('line-boundary move jumps the caret to the block end', () {
+      final c = MarkdownEditorController(markdown: 'hello world');
+      final id = c.document.nodes.first.id;
+      c.setSelection(caret(id, 3));
+      c.moveSelection(
+          forward: true, granularity: CaretGranularity.lineBoundary);
+      expect((c.selection!.extent.nodePosition as TextNodePosition).offset, 11);
+      c.dispose();
+    });
+  });
+
   group('Mode switching (single source of truth)', () {
     test('toggle wysiwyg <-> source preserves content', () {
       final c = MarkdownEditorController(markdown: '# Title');

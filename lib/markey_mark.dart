@@ -42,6 +42,7 @@ export 'src/editing/operations.dart'
 export 'src/editing/transaction.dart' show EditTransaction;
 export 'src/editing/editor.dart' show Editor;
 export 'src/editing/commands.dart' show EditCommands;
+export 'src/editing/caret_motor.dart' show CaretMotor, CaretGranularity;
 export 'src/editing/input_rules.dart'
     show
         InputRule,

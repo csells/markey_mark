@@ -9,6 +9,7 @@ import 'package:flutter_math_fork/flutter_math.dart';
 import 'package:super_clipboard/super_clipboard.dart' as sc;
 import 'package:super_drag_and_drop/super_drag_and_drop.dart' as sdd;
 
+import '../editing/caret_motor.dart';
 import '../editing/search.dart';
 import '../model/attributes.dart';
 import '../model/delta.dart';
@@ -211,7 +212,23 @@ class _MarkdownEditorState extends State<MarkdownEditor>
 
   Object? _lastDoc;
 
+  /// The horizontal "goal column" (block-local x, in logical px) preserved
+  /// across a run of consecutive vertical (up/down) caret moves, mirroring
+  /// Flutter's `VerticalCaretMovementRun`. Null when not in a vertical run; it
+  /// resets on any other caret change (typing, click, horizontal/word move).
+  double? _verticalGoalX;
+
+  /// Set while applying a vertical move so [_onControllerChanged] doesn't reset
+  /// the goal column for the selection change the move itself causes.
+  bool _verticalMoving = false;
+
+  /// The most recent painted block content width, used to lay out an adjacent
+  /// (possibly not-yet-cached) block when moving the caret into it.
+  double _lastBlockWidth = 0;
+
   void _onControllerChanged() {
+    // Any caret change that isn't itself a vertical move ends the vertical run.
+    if (!_verticalMoving) _verticalGoalX = null;
     // Fire onChanged only when the (immutable) document actually changed.
     if (widget.onChanged != null && !identical(_lastDoc, _c.document)) {
       _lastDoc = _c.document;
@@ -740,6 +757,114 @@ class _MarkdownEditorState extends State<MarkdownEditor>
       if (n is! TextBlockNode) continue;
       final tp = _layoutFor(n, box.size.width);
       return (entry.key, tp.getPositionForOffset(local).offset);
+    }
+    return null;
+  }
+
+  // ── Vertical caret movement (needs paint geometry + goal column) ─────────
+
+  /// Moves the caret one visual line up/down, preserving the goal column. This
+  /// is the one movement that needs layout: it reads the caret's pixel x, then
+  /// asks the line above/below (or the adjacent block) for the position nearest
+  /// that x — super_editor's "get X → position near X", with Flutter's goal-
+  /// column persistence.
+  void _moveCaretVertical({required bool forward, required bool extend}) {
+    if (widget.readOnly) return;
+    final sel = _c.selection;
+    if (sel == null) return;
+    final caret = _caretLocalGeometry(sel.extent);
+    if (caret == null) return;
+    final goalX = _verticalGoalX ??= caret.$1.dx;
+    final to = _positionOneLineFrom(sel.extent, caret, goalX, forward: forward);
+    if (to == null) return;
+    _verticalMoving = true;
+    if (extend) {
+      _c.setSelection(DocumentSelection(base: sel.base, extent: to));
+    } else {
+      _c.placeCaretAt(to);
+    }
+    _verticalMoving = false;
+  }
+
+  /// The caret's block-local offset and full height for [pos], or null when the
+  /// block isn't laid out / isn't a vertically-navigable text block.
+  (Offset, double)? _caretLocalGeometry(DocumentPosition pos) {
+    final node = _c.document.nodeById(pos.nodeId);
+    final np = pos.nodePosition;
+    if (np is! TextNodePosition) return null;
+    if (node is CodeBlockNode) {
+      final cl = _codeLayoutCache[node.id];
+      if (cl == null) return null;
+      return (cl.getOffsetForCaret(np.offset), cl.getFullHeightForCaret(np.offset));
+    }
+    if (node is TextBlockNode) {
+      final tp = _layoutCache[node.id]?.painter;
+      if (tp == null) return null;
+      final tpos = TextPosition(offset: np.offset);
+      return (
+        tp.getOffsetForCaret(tpos, Rect.zero),
+        tp.getFullHeightForCaret(tpos, Rect.zero),
+      );
+    }
+    return null;
+  }
+
+  DocumentPosition? _positionOneLineFrom(
+      DocumentPosition pos, (Offset, double) caret, double goalX,
+      {required bool forward}) {
+    final node = _c.document.nodeById(pos.nodeId);
+    final (off, height) = caret;
+    final probeY = forward ? off.dy + height + 1 : off.dy - 1;
+
+    // Try staying within the same block (another visual line of a wrapped
+    // paragraph, or another physical line of a code block).
+    if (node is TextBlockNode) {
+      final tp = _layoutCache[node.id]?.painter;
+      if (tp != null && probeY >= 0 && probeY <= tp.height) {
+        final p = tp.getPositionForOffset(Offset(goalX, probeY));
+        return DocumentPosition.text(node.id, p.offset);
+      }
+    } else if (node is CodeBlockNode) {
+      final cl = _codeLayoutCache[node.id];
+      if (cl != null && probeY >= 0 && probeY <= cl.height) {
+        return DocumentPosition.text(
+            node.id, cl.getPositionForOffset(Offset(goalX, probeY)));
+      }
+    }
+
+    // Crossed the block edge → nearest position at goalX in the adjacent block.
+    final neighbour = forward
+        ? _adjacentEditable(pos.nodeId, 1)
+        : _adjacentEditable(pos.nodeId, -1);
+    if (neighbour == null) return null;
+    return _positionNearXInBlock(neighbour, goalX, atTop: forward);
+  }
+
+  /// The position nearest [goalX] on the first ([atTop]) or last visual line of
+  /// [node], laying it out on demand if it isn't cached (off-screen neighbour).
+  DocumentPosition _positionNearXInBlock(Node node, double goalX,
+      {required bool atTop}) {
+    final width = _lastBlockWidth > 0 ? _lastBlockWidth : 600.0;
+    if (node is CodeBlockNode) {
+      final cl = _codeLayoutFor(node, width);
+      final y = atTop ? 0.0 : math.max(0.0, cl.height - 1);
+      return DocumentPosition.text(
+          node.id, cl.getPositionForOffset(Offset(goalX, y)));
+    }
+    final tp = _layoutFor(node as TextBlockNode, width);
+    final y = atTop ? 0.0 : math.max(0.0, tp.height - 1);
+    final p = tp.getPositionForOffset(Offset(goalX, y));
+    return DocumentPosition.text(node.id, p.offset);
+  }
+
+  /// The next editable (text/code) block [dir] (±1) steps from [id].
+  Node? _adjacentEditable(String id, int dir) {
+    final doc = _c.document;
+    var i = doc.indexOfId(id);
+    if (i < 0) return null;
+    for (i += dir; i >= 0 && i < doc.length; i += dir) {
+      final n = doc.nodeAt(i);
+      if (n is TextBlockNode || n is CodeBlockNode) return n;
     }
     return null;
   }
@@ -1689,6 +1814,7 @@ class _MarkdownEditorState extends State<MarkdownEditor>
       key: ValueKey('markey-block-${node.id}'),
       builder: (context, constraints) {
         final width = constraints.maxWidth;
+        _lastBlockWidth = width;
         final layout = _codeLayoutFor(node, width);
         final height =
             math.max(layout.height, style.codeTextStyle.fontSize ?? 16);
@@ -1770,6 +1896,7 @@ class _MarkdownEditorState extends State<MarkdownEditor>
       key: ValueKey('markey-block-${node.id}'),
       builder: (context, constraints) {
         final width = constraints.maxWidth;
+        _lastBlockWidth = width;
         final tp = _layoutFor(node, width); // cached: no re-shape if unchanged
         final height = math.max(tp.height, base.fontSize ?? 16);
         return GestureDetector(
@@ -1818,16 +1945,66 @@ class _MarkdownEditorState extends State<MarkdownEditor>
       cmd(LogicalKeyboardKey.keyC): const _CopyIntent(),
       cmd(LogicalKeyboardKey.keyX): const _CutIntent(),
       cmd(LogicalKeyboardKey.keyA): const _SelectAllIntent(),
-      const SingleActivator(LogicalKeyboardKey.arrowLeft):
-          const _MoveCaretIntent(false),
-      const SingleActivator(LogicalKeyboardKey.arrowRight):
-          const _MoveCaretIntent(true),
+      // Block reorder keeps Alt/Opt+Up/Down (a markey_mark affordance).
       const SingleActivator(LogicalKeyboardKey.arrowUp, alt: true):
           const _MoveBlockIntent(-1),
       const SingleActivator(LogicalKeyboardKey.arrowDown, alt: true):
           const _MoveBlockIntent(1),
       const SingleActivator(LogicalKeyboardKey.escape): const _DismissSlashIntent(),
+      ..._caretShortcuts(meta),
     };
+  }
+
+  /// Platform-aware caret/selection key bindings, modelled on Flutter's
+  /// `DefaultTextEditingShortcuts` (char/word/line/document × collapse/extend ×
+  /// horizontal/vertical), generalized to our multi-block document.
+  Map<ShortcutActivator, Intent> _caretShortcuts(bool meta) {
+    final m = <ShortcutActivator, Intent>{};
+    for (final shift in const [false, true]) {
+      // Character left/right.
+      m[SingleActivator(LogicalKeyboardKey.arrowLeft, shift: shift)] =
+          _MoveIntent(false, CaretGranularity.character, shift);
+      m[SingleActivator(LogicalKeyboardKey.arrowRight, shift: shift)] =
+          _MoveIntent(true, CaretGranularity.character, shift);
+      // Vertical line up/down (goal column preserved).
+      m[SingleActivator(LogicalKeyboardKey.arrowUp, shift: shift)] =
+          _VerticalMoveIntent(false, shift);
+      m[SingleActivator(LogicalKeyboardKey.arrowDown, shift: shift)] =
+          _VerticalMoveIntent(true, shift);
+      // Word-wise: Alt+arrow on macOS, Ctrl+arrow elsewhere.
+      m[SingleActivator(LogicalKeyboardKey.arrowLeft,
+              shift: shift, alt: meta, control: !meta)] =
+          _MoveIntent(false, CaretGranularity.word, shift);
+      m[SingleActivator(LogicalKeyboardKey.arrowRight,
+              shift: shift, alt: meta, control: !meta)] =
+          _MoveIntent(true, CaretGranularity.word, shift);
+      // Line boundary: Cmd+arrow on macOS, Home/End elsewhere.
+      m[SingleActivator(LogicalKeyboardKey.home, shift: shift)] =
+          _MoveIntent(false, CaretGranularity.lineBoundary, shift);
+      m[SingleActivator(LogicalKeyboardKey.end, shift: shift)] =
+          _MoveIntent(true, CaretGranularity.lineBoundary, shift);
+      if (meta) {
+        m[SingleActivator(LogicalKeyboardKey.arrowLeft,
+                shift: shift, meta: true)] =
+            _MoveIntent(false, CaretGranularity.lineBoundary, shift);
+        m[SingleActivator(LogicalKeyboardKey.arrowRight,
+                shift: shift, meta: true)] =
+            _MoveIntent(true, CaretGranularity.lineBoundary, shift);
+        // Document boundary: Cmd+Up/Down on macOS.
+        m[SingleActivator(LogicalKeyboardKey.arrowUp, shift: shift, meta: true)] =
+            _MoveIntent(false, CaretGranularity.documentBoundary, shift);
+        m[SingleActivator(LogicalKeyboardKey.arrowDown,
+                shift: shift, meta: true)] =
+            _MoveIntent(true, CaretGranularity.documentBoundary, shift);
+      } else {
+        // Document boundary: Ctrl+Home/End elsewhere.
+        m[SingleActivator(LogicalKeyboardKey.home, shift: shift, control: true)] =
+            _MoveIntent(false, CaretGranularity.documentBoundary, shift);
+        m[SingleActivator(LogicalKeyboardKey.end, shift: shift, control: true)] =
+            _MoveIntent(true, CaretGranularity.documentBoundary, shift);
+      }
+    }
+    return m;
   }
 
   Map<Type, Action<Intent>> _actions() => {
@@ -1845,12 +2022,14 @@ class _MarkdownEditorState extends State<MarkdownEditor>
           _c.redo();
           return null;
         }),
-        _MoveCaretIntent: CallbackAction<_MoveCaretIntent>(onInvoke: (i) {
-          if (i.forward) {
-            _c.moveCaretRight();
-          } else {
-            _c.moveCaretLeft();
-          }
+        _MoveIntent: CallbackAction<_MoveIntent>(onInvoke: (i) {
+          _verticalGoalX = null; // any horizontal/word/line move ends a v-run
+          _c.moveSelection(
+              forward: i.forward, granularity: i.granularity, extend: i.extend);
+          return null;
+        }),
+        _VerticalMoveIntent: CallbackAction<_VerticalMoveIntent>(onInvoke: (i) {
+          _moveCaretVertical(forward: i.forward, extend: i.extend);
           return null;
         }),
         _DismissSlashIntent: CallbackAction<_DismissSlashIntent>(onInvoke: (_) {
@@ -1941,9 +2120,20 @@ class _CutIntent extends Intent {
   const _CutIntent();
 }
 
-class _MoveCaretIntent extends Intent {
-  const _MoveCaretIntent(this.forward);
+/// Horizontal / word / line / document caret movement (collapse when [extend]
+/// is false, extend the selection when true).
+class _MoveIntent extends Intent {
+  const _MoveIntent(this.forward, this.granularity, this.extend);
   final bool forward;
+  final CaretGranularity granularity;
+  final bool extend;
+}
+
+/// Vertical (line up/down) caret movement, preserving the goal column.
+class _VerticalMoveIntent extends Intent {
+  const _VerticalMoveIntent(this.forward, this.extend);
+  final bool forward;
+  final bool extend;
 }
 
 // ── Source-mode highlighting controller ────────────────────────────────────

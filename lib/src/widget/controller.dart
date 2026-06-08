@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:characters/characters.dart';
 import 'package:flutter/foundation.dart';
 
+import '../editing/caret_motor.dart';
 import '../editing/commands.dart';
 import '../editing/editor.dart';
 import '../editing/input_rules.dart';
@@ -322,6 +323,18 @@ class MarkdownEditorController extends ChangeNotifier {
       base: DocumentPosition.text(first.id, 0),
       extent: DocumentPosition.text(last.id, last.delta.length),
     ));
+  }
+
+  /// Selects the word at [pos] (double-click). No-op off a text-bearing block.
+  void selectWordAt(DocumentPosition pos) {
+    final r = CaretMotor(document).wordRangeAt(pos);
+    if (r != null) setSelection(DocumentSelection(base: r.$1, extent: r.$2));
+  }
+
+  /// Selects the logical line at [pos] (triple-click).
+  void selectLineAt(DocumentPosition pos) {
+    final r = CaretMotor(document).lineRangeAt(pos);
+    if (r != null) setSelection(DocumentSelection(base: r.$1, extent: r.$2));
   }
 
   // ── Editing intents (route through the command pipeline) ─────────────────
@@ -843,76 +856,74 @@ class MarkdownEditorController extends ChangeNotifier {
     _editor.redo();
   }
 
-  // ── Caret movement (grapheme-aware, crossing blocks) ─────────────────────
+  // ── Caret & selection movement ───────────────────────────────────────────
+  //
+  // One authority for every kind of caret/selection move, backed by the pure
+  // [CaretMotor]. Mirrors Flutter's `DirectionalCaretMovementIntent` semantics
+  // (collapse vs. extend) and super_editor's per-component orchestration, and
+  // works uniformly across paragraphs, code blocks, and table cells.
 
-  void moveCaretLeft() => _moveCaret(forward: false);
-  void moveCaretRight() => _moveCaret(forward: true);
+  void moveCaretLeft() =>
+      moveSelection(forward: false, granularity: CaretGranularity.character);
+  void moveCaretRight() =>
+      moveSelection(forward: true, granularity: CaretGranularity.character);
 
-  void _moveCaret({required bool forward}) {
+  /// Moves the selection by [granularity] in a direction. When [extend] is
+  /// false the selection collapses (caret navigation); when true the anchor
+  /// (base) is kept and only the extent moves (keyboard selection).
+  void moveSelection({
+    required bool forward,
+    required CaretGranularity granularity,
+    bool extend = false,
+  }) {
     _canRevertRule = false;
     final sel = selection;
     if (sel == null) return;
-    final node = document.nodeById(sel.extent.nodeId);
-    if (node is! TextBlockNode) return;
-    final pos = sel.extent.nodePosition;
-    if (pos is! TextNodePosition) return;
 
-    if (!sel.isCollapsed) {
-      final a = (sel.base.nodePosition as TextNodePosition).offset;
-      final b = pos.offset;
-      final edge = forward ? (a > b ? a : b) : (a < b ? a : b);
+    // A plain character move over a range just collapses to the directional
+    // edge (Flutter `collapseSelection: true` behavior).
+    if (!extend &&
+        !sel.isCollapsed &&
+        granularity == CaretGranularity.character) {
       setSelection(DocumentSelection.collapsed(
-        DocumentPosition.text(node.id, edge),
-      ));
+          forward ? _laterPosition(sel) : _earlierPosition(sel)));
       return;
     }
 
-    final plain = node.delta.toPlainText();
-    final offset = pos.offset;
-    if (forward) {
-      if (offset < plain.length) {
-        final next =
-            plain.characters.take(offset).string.length; // current cluster start
-        final advanced = _graphemeAfter(plain, offset);
+    final to = CaretMotor(document)
+        .move(sel.extent, forward: forward, granularity: granularity);
+    if (to == null) {
+      // No room to move; a plain move over a range still collapses to an edge.
+      if (!extend && !sel.isCollapsed) {
         setSelection(DocumentSelection.collapsed(
-          DocumentPosition.text(node.id, advanced == offset ? next : advanced),
-        ));
-      } else {
-        final after = document.nodeAfter(node.id);
-        if (after is TextBlockNode) {
-          setSelection(DocumentSelection.collapsed(
-            DocumentPosition.text(after.id, 0),
-          ));
-        }
+            forward ? _laterPosition(sel) : _earlierPosition(sel)));
       }
-    } else {
-      if (offset > 0) {
-        final before = plain.substring(0, offset).characters.skipLast(1).string.length;
-        setSelection(DocumentSelection.collapsed(
-          DocumentPosition.text(node.id, before),
-        ));
-      } else {
-        final prev = document.nodeBefore(node.id);
-        if (prev is TextBlockNode) {
-          setSelection(DocumentSelection.collapsed(
-            DocumentPosition.text(prev.id, prev.delta.length),
-          ));
-        }
-      }
+      return;
     }
+
+    setSelection(extend
+        ? DocumentSelection(base: sel.base, extent: to)
+        : DocumentSelection.collapsed(to));
   }
 
-  static int _graphemeAfter(String text, int offset) {
-    final range = text.characters.iterator;
-    var pos = 0;
-    while (range.moveNext()) {
-      final clusterLen = range.current.length;
-      if (pos == offset) return pos + clusterLen;
-      pos += clusterLen;
-      if (pos > offset) return pos;
-    }
-    return text.length;
+  DocumentPosition _earlierPosition(DocumentSelection sel) =>
+      _comparePositions(sel.base, sel.extent) <= 0 ? sel.base : sel.extent;
+  DocumentPosition _laterPosition(DocumentSelection sel) =>
+      _comparePositions(sel.base, sel.extent) >= 0 ? sel.base : sel.extent;
+
+  /// Orders two positions in document order (negative if [a] precedes [b]).
+  int _comparePositions(DocumentPosition a, DocumentPosition b) {
+    final ia = document.indexOfId(a.nodeId);
+    final ib = document.indexOfId(b.nodeId);
+    if (ia != ib) return ia.compareTo(ib);
+    return _localOffset(a.nodePosition).compareTo(_localOffset(b.nodePosition));
   }
+
+  static int _localOffset(NodePosition p) => switch (p) {
+        TextNodePosition(:final offset) => offset,
+        TableCellPosition(:final offset) => offset,
+        _ => 0,
+      };
 
   @override
   void dispose() {
