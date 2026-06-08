@@ -77,11 +77,15 @@ blocks). No published "plugin author guide" / `CorePlugin` proof yet.
 
 ## 7. Testing & docs
 
-- **~93% line coverage** (unit + widget), analyzer clean. New this cycle:
-  clipboard/drop models, code-layout fallback, position value-types, caret-motor
-  edges. Lowest remaining: `markdown_editor.dart` (~90% — the 2.3k-line widget's
-  platform/DnD/super_clipboard branches), `clipboard.dart`/`code_layout.dart`
-  platform/fallback branches.
+- **~94% line coverage** (unit + widget; ~4.75k/5.05k lines), analyzer clean.
+  This cycle lifted the lowest files — `drop.dart` 0%→100%, `clipboard.dart`
+  24%→~70%, `code_layout.dart` 76%→~90% (the non-`LineHighlighter` fallback),
+  `position.dart` 85%→~98%, plus caret-motor edges and the `DocumentText` error
+  path. Lowest remaining: `markdown_editor.dart` (~90% — the 2.3k-line widget's
+  platform/DnD/`super_clipboard` and other device-only branches) and the native
+  `super_clipboard` rich-flavor read/write (needs a real platform channel).
+  *(Note: the `--coverage` run is slow/flaky under instrumentation on a few heavy
+  widget tests; the plain suite is green and the new tests pass in isolation.)*
 - **Docs**: per-feature Markdown in `docs/` + a screenshot generator
   (`test/docs/generate_screenshots_test.dart`) + MkDocs config; this cycle added
   the caret-motor/RTL/mobile/a11y docs.
