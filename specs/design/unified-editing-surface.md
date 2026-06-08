@@ -134,20 +134,26 @@ Each step ships behind the existing public API with green tests:
 4. ✅ **IME on the stream**: `updateEditingValue` / `updateEditingValueWithDeltas`
    map deltas through `DocumentText`; the cross-block special-cases are gone —
    deleting a separator merges blocks, inserting a newline splits one, natively.
-5. 🟡 **Tables & code as regions**: **code blocks done** — their text is in the
-   stream, edits route through the shared command pipeline (Enter inserts a
-   literal newline), and they render with the unified caret (read-only stays
-   highlighted). **Tables still open**: a 2D grid maps poorly onto a *linear*
-   stream (a cross-cell backspace would "merge" cells), so unifying them needs a
-   table-aware position/selection model plus caret-based cell rendering — its own
-   focused effort. Table cells today are `TextField`s that commit through the
-   **unified** controller/undo.
+5. ✅ **Tables & code as regions**: **code blocks** join the stream and edit
+   through the shared command pipeline (Enter inserts a literal newline),
+   rendering with the unified caret. **Table cells** are now caret-based
+   sub-editors via a table-aware `TableCellPosition`: tapping a cell places a
+   cell caret, the IME *windows* to that single cell, and edits route through
+   the unified commands (cells never merge across boundaries — the 2D grid
+   stays intact). The per-cell `TextField` is gone. *(Cross-cell / cell↔body
+   drag-selection — selecting a rectangular cell range — is a further
+   refinement; within-cell selection and all editing are unified.)*
 6. ✅ **Open block set**: `CustomBlockNode` + `BlockRegistry` render extension
    point (`block_registry.dart`). *Decode/encode registration builds on the same
    seam and is still open.*
 
-Status: the **invisible architecture is unified** — one IME, one selection
-coordinate system, one identity scheme, one document, one open block model, with
-Markdown canonical and no WebView/JavaScript. The remaining open items (steps 3
-consolidation, 5 tables/code-as-stream, fractional ordering, decode/encode
-registration) are larger rendering/refactor efforts tracked here.
+Status: **steps 1–6 are implemented.** One IME, one selection authority, one
+identity scheme, one document, one open block model — and every WYSIWYG editing
+surface (paragraphs, headings, lists, quotes, code blocks, table cells) now
+shares the same caret/IME/command/undo machinery. Source mode remains a
+deliberate alternate *projection* (sharing selection via the source offset map).
+Markdown stays canonical; no WebView/JavaScript.
+
+Remaining refinements (smaller, tracked): fractional-index block ordering for
+mergeable concurrent reorders; decode/encode registration for custom blocks; and
+rectangular cross-cell / cell↔body drag-selection.
