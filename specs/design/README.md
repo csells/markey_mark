@@ -51,6 +51,9 @@ build (parser → layout → `CustomPainter`), not a JS bridge.
 | 17 | [unified-editing-surface.md](./unified-editing-surface.md) | ADR-008: one editor (one stream, one IME, one selection authority), stable ids, open block registry, the per-keystroke latency frontier (windowed IME, O(log n) document, per-line code layout) |
 | 18 | [caret-selection-and-input.md](./caret-selection-and-input.md) | The caret/selection motor (char/word/line/doc + vertical goal-column movement across blocks), platform key bindings, and the reuse-Flutter-types plan for a11y semantics, mobile handles/magnifier, and bidi |
 
+A fresh-eyes [gap analysis](../gap-analysis.md) tracks what's built vs. partial
+vs. missing against these specs.
+
 Supporting research lives in [`../research/`](../research/).
 
 ## Naming
