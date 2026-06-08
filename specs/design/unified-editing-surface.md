@@ -239,8 +239,20 @@ layout cache** whenever no explicit style was supplied. The resolved style is
 now memoized (re-derived only when the explicit style or ambient theme changes),
 so the text- and code-block layout caches actually persist across keystrokes.
 
-**Remaining sub-frontier:** highlight *tokenizing* a giant block is still
-O(block) per keystroke (cheap vs. shaping, but not incremental). The next step
-would be CodeMirror-style stateful per-line tokenizing (each line's start state
-is the previous line's end state) so even tokenizing is O(changed lines forward
-until the state stabilizes). Tracked; shaping — the dominant cost — is solved.
+**Tokenizing is now incremental too (O(changed line)).** The built-in
+highlighter is line-based and stateful (`LineHighlighter.highlightLine(line,
+startState) → (spans, endState)`, state `0` = normal, `1` = inside an open
+`/* … */`); the whole-block `highlight()` is a fold of the line tokenizer over
+the lines, so the two paths cannot diverge and multi-line block comments still
+colour correctly. `CodeLayout` caches tokenization by `(startState, text)` and
+shaping by highlight signature, both carried from the previous layout. A
+keystroke therefore re-tokenizes only the changed line and forward **until the
+carried state stabilizes** (the usual case: zero further lines — a line whose
+`(startState, text)` is unchanged is a cache hit even if its index shifted from
+an insert/delete), exactly CodeMirror's incremental tokenizing. Gated by
+`code_layout_perf_test` via `CodeLayout.debugTokenizedChars`: a keystroke in a
+2,000-line block re-tokenizes O(one line). Tokenization is independent of
+width/style, so a resize re-shapes (reusing tokens) without re-tokenizing.
+
+With this, a code-block keystroke is O(changed line) for **both** tokenizing and
+shaping — no remaining whole-block work on the hot path.

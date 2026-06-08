@@ -124,4 +124,41 @@ void main() {
         reason: 'small=$small chars, huge=$huge chars — '
             'per-keystroke shaping must be ~constant in block size');
   });
+
+  testWidgets('editing a giant code block re-tokenizes O(changed line), not O(block)',
+      (tester) async {
+    const lines = 2000;
+    final c = MarkdownEditorController(markdown: bigCodeDoc(lines));
+    addTearDown(c.dispose);
+    final (_, client) = await pump(tester, c);
+
+    final node = c.document.nodes.first as CodeBlockNode;
+    final code = node.code;
+    final firstLineEnd = code.indexOf('\n');
+    c.placeCaretAt(DocumentPosition.text(node.id, 4));
+    await tester.pump();
+
+    // Measure the highlight tokenizing done by ONE keystroke. Editing a line
+    // whose end-state (e.g. not inside a block comment) is unchanged must only
+    // re-tokenize that line — the rest hit the (startState, text) cache.
+    CodeLayout.debugTokenizedChars = 0;
+    client.updateEditingValueWithDeltas([
+      TextEditingDeltaInsertion(
+        oldText: code,
+        textInserted: 'k',
+        insertionOffset: 4,
+        selection: const TextSelection.collapsed(offset: 5),
+        composing: TextRange.empty,
+      ),
+    ]);
+    await tester.pump();
+
+    expect(CodeLayout.debugTokenizedChars, greaterThan(0),
+        reason: 'the edited line must re-tokenize');
+    expect(CodeLayout.debugTokenizedChars, lessThan(firstLineEnd * 6),
+        reason: 're-tokenizing must be O(changed line), not O(block) '
+            '(block is ${code.length} chars)');
+    await tester.pumpWidget(const SizedBox());
+  });
 }
+
