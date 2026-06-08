@@ -11,6 +11,7 @@ import '../editing/operations.dart';
 import '../editing/search.dart';
 import '../editing/transaction.dart';
 import '../model/document.dart';
+import '../model/document_text.dart';
 import '../model/node.dart';
 import '../model/position.dart';
 import '../model/selection.dart';
@@ -251,10 +252,46 @@ class MarkdownEditorController extends ChangeNotifier {
     return DocumentPosition.text(bestId!, caret);
   }
 
-  // ── Selection ────────────────────────────────────────────────────────────
+  // ── Selection (one authority, expressed over the document text stream) ────
 
   void setSelection(DocumentSelection? selection) =>
       _editor.setSelection(selection);
+
+  /// The unified document text stream + offset mapping for the current document
+  /// (§13). The single coordinate system selection/IME/clipboard share.
+  DocumentText documentText() => DocumentText.of(document);
+
+  /// Collapses the selection (caret) at [pos].
+  void placeCaretAt(DocumentPosition pos) =>
+      setSelection(DocumentSelection.collapsed(pos));
+
+  /// Extends the selection to [pos], keeping the current anchor (base). Falls
+  /// back to a caret at [pos] when there is no current selection.
+  void extendSelectionTo(DocumentPosition pos) {
+    final sel = selection;
+    setSelection(DocumentSelection(base: sel?.base ?? pos, extent: pos));
+  }
+
+  /// Selects the document-stream range `[base, extent]` (global offsets). This
+  /// is the single entry point shared by gestures, IME, and keyboard.
+  void selectByOffsets(int base, int extent) {
+    final dt = documentText();
+    if (!dt.coversAny) return;
+    setSelection(dt.selectionOf(
+      base.clamp(0, dt.text.length),
+      extent.clamp(0, dt.text.length),
+    ));
+  }
+
+  /// The current selection as a `(base, extent)` pair of stream offsets, or null
+  /// when there is no selection / it isn't on the stream.
+  (int, int)? selectionOffsets() {
+    final sel = selection;
+    if (sel == null) return null;
+    final dt = documentText();
+    if (!dt.covers(sel.base.nodeId) || !dt.covers(sel.extent.nodeId)) return null;
+    return (dt.offsetOf(sel.base), dt.offsetOf(sel.extent));
+  }
 
   /// Selects the entire document, from the start of the first text block to the
   /// end of the last text block. A no-op if there are no text blocks.

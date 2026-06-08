@@ -118,7 +118,6 @@ class _MarkdownEditorState extends State<MarkdownEditor>
   /// set, the document scroll view is frozen so the drag selects (across blocks)
   /// instead of scrolling.
   bool _mouseSelecting = false;
-  DocumentPosition? _mouseAnchor;
 
   /// Tracks WYSIWYG⇄source transitions so the source caret can be restored once.
   EditorMode? _lastMode;
@@ -389,10 +388,7 @@ class _MarkdownEditorState extends State<MarkdownEditor>
       // Selection-only change — map global offsets back to a document selection.
       final s = value.selection;
       if (s.isValid && dt.coversAny) {
-        _c.setSelection(dt.selectionOf(
-          s.baseOffset.clamp(0, dt.text.length),
-          s.extentOffset.clamp(0, dt.text.length),
-        ));
+        _c.selectByOffsets(s.baseOffset, s.extentOffset);
       }
       _imeValue = value;
       return;
@@ -414,12 +410,7 @@ class _MarkdownEditorState extends State<MarkdownEditor>
       final edit = editFromDelta(delta);
       if (edit == null) {
         final s = delta.selection;
-        if (s.isValid) {
-          _c.setSelection(dt.selectionOf(
-            s.baseOffset.clamp(0, dt.text.length),
-            s.extentOffset.clamp(0, dt.text.length),
-          ));
-        }
+        if (s.isValid) _c.selectByOffsets(s.baseOffset, s.extentOffset);
         continue;
       }
       _applyStreamEdit(dt, edit.$1, edit.$2, edit.$3);
@@ -432,8 +423,7 @@ class _MarkdownEditorState extends State<MarkdownEditor>
   /// special-casing.
   void _applyStreamEdit(DocumentText dt, int start, int deleted, String inserted) {
     if (!dt.coversAny) return;
-    final len = dt.text.length;
-    _c.setSelection(dt.selectionOf(start.clamp(0, len), (start + deleted).clamp(0, len)));
+    _c.selectByOffsets(start, start + deleted);
     if (inserted.isEmpty) {
       _c.deleteBackward();
     } else if (inserted == '\n') {
@@ -521,12 +511,11 @@ class _MarkdownEditorState extends State<MarkdownEditor>
     final pos = tp.getPositionForOffset(localPos);
     _focusNode.requestFocus();
     final target = DocumentPosition.text(node.id, pos.offset);
-    final sel = _c.selection;
     // Shift+click extends the existing selection (possibly across blocks).
-    if (HardwareKeyboard.instance.isShiftPressed && sel != null) {
-      _c.setSelection(DocumentSelection(base: sel.base, extent: target));
+    if (HardwareKeyboard.instance.isShiftPressed && _c.selection != null) {
+      _c.extendSelectionTo(target);
     } else {
-      _c.setSelection(DocumentSelection.collapsed(target));
+      _c.placeCaretAt(target);
     }
   }
 
@@ -538,12 +527,7 @@ class _MarkdownEditorState extends State<MarkdownEditor>
     if (widget.readOnly) return;
     final hit = _blockAtGlobal(d.globalPosition);
     final (target, offset) = hit ?? _localHit(node, d.localPosition, width);
-    final sel = _c.selection;
-    final base = sel?.base ?? DocumentPosition.text(target, offset);
-    _c.setSelection(DocumentSelection(
-      base: base,
-      extent: DocumentPosition.text(target, offset),
-    ));
+    _c.extendSelectionTo(DocumentPosition.text(target, offset));
   }
 
   (String, int) _localHit(Node node, Offset localPos, double width) {
@@ -673,26 +657,21 @@ class _MarkdownEditorState extends State<MarkdownEditor>
     final hit = _blockAtGlobal(e.position);
     if (hit == null) return;
     _focusNode.requestFocus();
-    final anchor = DocumentPosition.text(hit.$1, hit.$2);
-    _mouseAnchor = anchor;
     setState(() => _mouseSelecting = true);
-    _c.setSelection(DocumentSelection.collapsed(anchor));
+    _c.placeCaretAt(DocumentPosition.text(hit.$1, hit.$2));
   }
 
   void _onMousePointerMove(PointerMoveEvent e) {
-    if (!_mouseSelecting || _mouseAnchor == null) return;
+    if (!_mouseSelecting) return;
     final hit = _blockAtGlobal(e.position);
     if (hit == null) return;
-    _c.setSelection(DocumentSelection(
-      base: _mouseAnchor!,
-      extent: DocumentPosition.text(hit.$1, hit.$2),
-    ));
+    // The anchor is the caret set on pointer-down; extend keeps it.
+    _c.extendSelectionTo(DocumentPosition.text(hit.$1, hit.$2));
   }
 
   void _onMousePointerUp(PointerEvent e) {
     if (!_mouseSelecting) return;
     setState(() => _mouseSelecting = false);
-    _mouseAnchor = null;
   }
 
   Future<void> _handleCut() async {
