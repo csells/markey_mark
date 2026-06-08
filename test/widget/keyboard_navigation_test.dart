@@ -133,6 +133,27 @@ void main() {
       expect(off(c), 11);
     });
 
+    testWidgets('Home goes to the VISUAL line start on a wrapped paragraph',
+        (tester) async {
+      // A long single paragraph wraps across several visual lines at width 600.
+      final c = await pump(tester, List.filled(200, 'word').join(' '));
+      final id = c.document.nodes.first.id;
+      // Caret deep in the paragraph (on a later visual line, not the first).
+      c.placeCaretAt(DocumentPosition.text(id, 400));
+      await tester.pump();
+      await key(tester, LogicalKeyboardKey.home);
+      final home = off(c);
+      // Visual-line Home lands at the start of the wrapped line — not the
+      // paragraph start (0), and not past the caret.
+      expect(home, greaterThan(0));
+      expect(home, lessThan(400));
+      // End goes to the visual line end, after the caret's line start.
+      c.placeCaretAt(DocumentPosition.text(id, 400));
+      await tester.pump();
+      await key(tester, LogicalKeyboardKey.end);
+      expect(off(c), greaterThan(400));
+    });
+
     testWidgets('Ctrl+End jumps to the end of the document', (tester) async {
       final c = await pump(tester, 'first\n\nsecond');
       final last = c.document.nodes[1].id;

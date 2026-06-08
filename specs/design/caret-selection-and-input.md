@@ -121,10 +121,13 @@ blocks. Key bindings (`_caretShortcuts`) are platform-aware (macOS Cmd/Opt vs.
 Home/End + Ctrl elsewhere), each with a shift-to-extend variant; Alt/Opt+Up/Down
 remains the markey_mark block-reorder affordance.
 
-**Remaining motor refinement:** visual-line (soft-wrap) Home/End and within-block
-up/down currently rely on `TextPainter.getPositionForOffset` probing rather than
-`computeLineMetrics()`; switching to line metrics would make wrapped-paragraph
-Home/End land on the *visual* line start/end like Flutter. Tracked.
+**Visual-line Home/End (implemented):** Home/End (and Cmd+←/→ on macOS) move to
+the *visual* line start/end via `TextPainter.getLineBoundary` (soft-wrap aware),
+falling back to the motor's logical line boundary for code blocks/cells or when
+a block isn't laid out. Gated by `keyboard_navigation_test.dart` (Home on a
+wrapped paragraph lands at the wrapped-line start, not the paragraph start).
+Within-block up/down still probes `getPositionForOffset`, which is correct for
+the goal-column model.
 
 ## 14.6 Accessibility (implemented) — reuse `SemanticsConfiguration`
 

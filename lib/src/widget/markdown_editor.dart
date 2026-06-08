@@ -833,6 +833,33 @@ class _MarkdownEditorState extends State<MarkdownEditor>
     _verticalMoving = false;
   }
 
+  /// Moves/extends the caret to the **visual** line start/end (soft-wrap aware)
+  /// using the painter's line boundary, falling back to the logical line
+  /// boundary (code blocks, cells, or when not laid out).
+  void _moveToVisualLineBoundary({required bool forward, required bool extend}) {
+    final sel = _c.selection;
+    if (sel == null) return;
+    final ext = sel.extent;
+    final node = _c.document.nodeById(ext.nodeId);
+    final np = ext.nodePosition;
+    if (np is TextNodePosition && node is TextBlockNode) {
+      final tp = _layoutCache[node.id]?.painter;
+      if (tp != null) {
+        final line = tp.getLineBoundary(TextPosition(offset: np.offset));
+        final target = forward ? line.end : line.start;
+        final to = DocumentPosition.text(node.id, target);
+        _c.setSelection(extend
+            ? DocumentSelection(base: sel.base, extent: to)
+            : DocumentSelection.collapsed(to));
+        return;
+      }
+    }
+    _c.moveSelection(
+        forward: forward,
+        granularity: CaretGranularity.lineBoundary,
+        extend: extend);
+  }
+
   /// The caret's block-local offset and full height for [pos], or null when the
   /// block isn't laid out / isn't a vertically-navigable text block.
   (Offset, double)? _caretLocalGeometry(DocumentPosition pos) {
@@ -2220,18 +2247,17 @@ class _MarkdownEditorState extends State<MarkdownEditor>
       m[SingleActivator(LogicalKeyboardKey.arrowRight,
               shift: shift, alt: meta, control: !meta)] =
           _MoveIntent(true, CaretGranularity.word, shift);
-      // Line boundary: Cmd+arrow on macOS, Home/End elsewhere.
+      // Line boundary (VISUAL line — respects soft wrap): Cmd+arrow on macOS,
+      // Home/End elsewhere.
       m[SingleActivator(LogicalKeyboardKey.home, shift: shift)] =
-          _MoveIntent(false, CaretGranularity.lineBoundary, shift);
+          _LineBoundaryIntent(false, shift);
       m[SingleActivator(LogicalKeyboardKey.end, shift: shift)] =
-          _MoveIntent(true, CaretGranularity.lineBoundary, shift);
+          _LineBoundaryIntent(true, shift);
       if (meta) {
         m[SingleActivator(LogicalKeyboardKey.arrowLeft,
-                shift: shift, meta: true)] =
-            _MoveIntent(false, CaretGranularity.lineBoundary, shift);
+                shift: shift, meta: true)] = _LineBoundaryIntent(false, shift);
         m[SingleActivator(LogicalKeyboardKey.arrowRight,
-                shift: shift, meta: true)] =
-            _MoveIntent(true, CaretGranularity.lineBoundary, shift);
+                shift: shift, meta: true)] = _LineBoundaryIntent(true, shift);
         // Document boundary: Cmd+Up/Down on macOS.
         m[SingleActivator(LogicalKeyboardKey.arrowUp, shift: shift, meta: true)] =
             _MoveIntent(false, CaretGranularity.documentBoundary, shift);
@@ -2272,6 +2298,11 @@ class _MarkdownEditorState extends State<MarkdownEditor>
         }),
         _VerticalMoveIntent: CallbackAction<_VerticalMoveIntent>(onInvoke: (i) {
           _moveCaretVertical(forward: i.forward, extend: i.extend);
+          return null;
+        }),
+        _LineBoundaryIntent: CallbackAction<_LineBoundaryIntent>(onInvoke: (i) {
+          _verticalGoalX = null;
+          _moveToVisualLineBoundary(forward: i.forward, extend: i.extend);
           return null;
         }),
         _DeleteIntent: CallbackAction<_DeleteIntent>(onInvoke: (i) {
@@ -2382,6 +2413,13 @@ class _MoveIntent extends Intent {
 /// Vertical (line up/down) caret movement, preserving the goal column.
 class _VerticalMoveIntent extends Intent {
   const _VerticalMoveIntent(this.forward, this.extend);
+  final bool forward;
+  final bool extend;
+}
+
+/// Move/extend to the VISUAL line start/end (soft-wrap aware), Home/End.
+class _LineBoundaryIntent extends Intent {
+  const _LineBoundaryIntent(this.forward, this.extend);
   final bool forward;
   final bool extend;
 }
