@@ -157,3 +157,45 @@ Markdown stays canonical; no WebView/JavaScript.
 Remaining refinements (smaller, tracked): fractional-index block ordering for
 mergeable concurrent reorders; decode/encode registration for custom blocks; and
 rectangular cross-cell / cell↔body drag-selection.
+
+## 13.7 Latency requirement: never reprocess the whole document per keystroke
+
+**Requirement (enforced by tests):** a keystroke must cost **O(active block)**,
+not O(document) — typing in a 4,000-block document is no slower than in a
+20-block one.
+
+**Why this was at risk.** The first cut of the unified stream had the IME mirror
+the *entire* document (`DocumentText.of(wholeDoc)`) and re-flatten it on every
+keystroke, and the `markdown` getter re-serialized the whole document on every
+read. Both are O(document) on the hot path — unacceptable.
+
+**How best-in-class editors avoid it (research):**
+- **CodeMirror 6** — the document is an immutable rope (`Text`) with structural
+  sharing; edits are positional `ChangeSet`s; only affected tree portions and
+  the viewport update. (codemirror/state README.)
+- **ProseMirror** — a persistent immutable node tree; transactions are steps; the
+  view redraws only the *changed* nodes.
+- **Lexical** — a dirty-node reconciler diffs prev/next `EditorState` and touches
+  only dirty leaves/elements.
+- **super_editor** — serializes only the *selected node(s)* to the IME (plus a
+  hidden leading char to detect start-of-block backspace), never the whole doc.
+
+**What we do.** The model is already immutable with structural sharing (an edit
+replaces one node; the rest keep identity). On top of that:
+1. **Windowed IME** — the IME mirrors only the selection's block span plus one
+   editable neighbor each side (`_imeWindow`), so backspace-at-start still merges
+   and Enter splits, while a keystroke flattens O(active block).
+2. **Memoized serialization** — `markdown` is cached by document identity, so
+   repeated reads don't re-serialize.
+
+**Gates (deterministic UI tests, not timing-flaky):**
+`DocumentText.debugFlattenedChars` proves a keystroke flattens O(block) in a
+2,000-block doc; `Markdown.debugSerializeCount` proves serialization is memoized;
+the IME value is asserted to be a bounded window (active ± 1), never distant
+blocks; and a wall-clock test asserts typing in a 4,000-block doc stays ~constant
+vs. a 20-block doc.
+
+*Known remaining O(n)-but-cheap:* `Document.replaceAt` copies the node-reference
+list per edit (≈µs at thousands of blocks). For very large documents the
+research answer is a persistent vector (RRB-tree) for `Document.nodes` →
+O(log n); tracked, not yet needed by the latency gates.
