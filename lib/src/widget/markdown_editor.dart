@@ -425,6 +425,40 @@ class _MarkdownEditorState extends State<MarkdownEditor>
     return first is TextBlockNode ? first : null;
   }
 
+  // ── Accessibility (screen-reader text-field semantics) ───────────────────
+  //
+  // The hand-painted surface is otherwise invisible to TalkBack/VoiceOver/NVDA.
+  // We expose the active block as an editable text field (value + caret) and
+  // wire the platform cursor-move / set-selection semantic actions to the same
+  // CaretMotor the keyboard uses, reusing Flutter's `SemanticsConfiguration`
+  // (via the `Semantics` widget) rather than reimplementing a11y.
+
+  /// The active block's visible text, or '' — the screen-reader value.
+  String _semanticsValue() => _activeBlock?.delta.toPlainText() ?? '';
+
+  void _semanticsSetSelection(TextSelection sel) {
+    final active = _activeBlock;
+    if (active == null) return;
+    _focusNode.requestFocus();
+    _c.setSelection(DocumentSelection(
+      base: DocumentPosition.text(active.id, sel.baseOffset),
+      extent: DocumentPosition.text(active.id, sel.extentOffset),
+    ));
+  }
+
+  void _semanticsMoveCursor({required bool forward, required bool extend}) {
+    _verticalGoalX = null;
+    if (_c.selection == null) {
+      final active = _activeBlock;
+      if (active == null) return;
+      _c.placeCaretAt(DocumentPosition.text(active.id, 0));
+    }
+    _c.moveSelection(
+        forward: forward,
+        granularity: CaretGranularity.character,
+        extend: extend);
+  }
+
   /// When the caret is in a table cell, returns (tableId, row, col); else null.
   /// A cell is a contextual sub-editor: the IME windows to just that cell.
   (String, int, int)? get _activeCell {
@@ -1221,7 +1255,23 @@ class _MarkdownEditorState extends State<MarkdownEditor>
         actions: _actions(),
         child: Focus(
           focusNode: _focusNode,
-          child: Stack(
+          child: Semantics(
+            container: true,
+            textField: true,
+            multiline: true,
+            readOnly: widget.readOnly,
+            // The active block's visible text + caret, so screen readers treat
+            // the editor as an editable field with a movable caret. Built only
+            // when semantics are enabled (a screen reader is active).
+            value: _semanticsValue(),
+            onSetSelection: widget.readOnly ? null : _semanticsSetSelection,
+            onMoveCursorForwardByCharacter: widget.readOnly
+                ? null
+                : (extend) => _semanticsMoveCursor(forward: true, extend: extend),
+            onMoveCursorBackwardByCharacter: widget.readOnly
+                ? null
+                : (extend) => _semanticsMoveCursor(forward: false, extend: extend),
+            child: Stack(
             children: [
               Listener(
                 onPointerDown: _onMousePointerDown,
@@ -1290,6 +1340,7 @@ class _MarkdownEditorState extends State<MarkdownEditor>
                   child: Center(child: _SelectionToolbar(controller: _c)),
                 ),
             ],
+          ),
           ),
         ),
       ),

@@ -119,24 +119,33 @@ up/down currently rely on `TextPainter.getPositionForOffset` probing rather than
 `computeLineMetrics()`; switching to line metrics would make wrapped-paragraph
 Home/End land on the *visual* line start/end like Flutter. Tracked.
 
-## 14.6 Accessibility (designed — next) — reuse `SemanticsConfiguration`
+## 14.6 Accessibility (implemented) — reuse `SemanticsConfiguration`
 
 A hand-painted editor is invisible to screen readers unless it declares text-field
-semantics on its render object. The reusable, public surface
-(`package:flutter/semantics.dart`):
+semantics. The WYSIWYG surface is now wrapped in a `Semantics` node that reuses
+Flutter's `SemanticsConfiguration` (read-side block labels/headers/image-alt
+already came from the painted `Text`/`RichText`):
 
-| Reuse | Provide |
+| Reuse (via the `Semantics` widget) | Provide |
 | --- | --- |
-| `RenderObject.describeSemanticsConfiguration` | `config.isTextField = true`, `config.textSelection`, `config.isReadOnly` |
-| `SemanticsConfiguration.onSetSelection` (`SetSelectionHandler`) | map the semantic `TextSelection` through `DocumentText` → `moveSelection`/`setSelection` |
-| `onMoveCursorForward/BackwardByCharacter`, `…ByWord` | delegate to `CaretMotor` (we already have char/word movement) |
-| `onSetText` / `onCopy` / `onPaste` | route to existing command pipeline |
+| `textField: true`, `readOnly:`, `multiline: true` | declares an editable text field to TalkBack/VoiceOver/NVDA |
+| `value:` | the active block's visible text (`_semanticsValue`) |
+| `onSetSelection` (`SetSelectionHandler`) | maps the semantic `TextSelection` to a `DocumentSelection` in the active block |
+| `onMoveCursorForward/BackwardByCharacter` | delegate to `controller.moveSelection` (the shared `CaretMotor`), honouring the `extendSelection` flag |
 
-Plan: wrap the painted document (or each block's `CustomPaint`) in a small
-`RenderObject`/`SingleChildRenderObjectWidget` that publishes these per the
-current `DocumentText` window, so TalkBack/VoiceOver/NVDA see one editable text
-field with a movable caret. The motor (§14.3) already supplies the cursor-move
-semantics actions.
+Gated by `accessibility_test.dart`: the editor reports `isSemantics(isTextField:
+true, value: …, hasMoveCursorForwardByCharacterAction: true, …)`, read-only mode
+reports `isReadOnly: true`, and performing the `moveCursorForwardByCharacter`
+semantic action actually advances the document caret. The cursor-move semantics
+reuse the motor, so there is one movement implementation behind keyboard, IME,
+and assistive tech.
+
+**Next a11y refinement:** the `Semantics` widget can't carry `textSelection`
+(that lives on `SemanticsConfiguration` in a `RenderObject`); to expose the live
+caret offset (so a screen reader announces caret position and supports
+word-granularity cursor moves), wrap the surface in a small
+`SingleChildRenderObjectWidget` whose render object sets
+`config.textSelection` and `onMoveCursorForward/BackwardByWord`. Tracked.
 
 ## 14.7 Mobile handles, magnifier & toolbar (designed — next) — reuse Flutter overlays
 
