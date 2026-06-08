@@ -27,6 +27,11 @@ class _Segment {
 class DocumentText {
   DocumentText._(this.text, this._segments, this._byId);
 
+  /// Total characters flattened across all [DocumentText.of] calls — a
+  /// test/CI hook to prove the IME hot path is *windowed* (a keystroke flattens
+  /// only the selection's block(s), not the whole document).
+  static int debugFlattenedChars = 0;
+
   factory DocumentText.of(Document doc) {
     final segs = <_Segment>[];
     final byId = <String, _Segment>{};
@@ -45,7 +50,9 @@ class DocumentText {
       segs.add(seg);
       byId[node.id] = seg;
     }
-    return DocumentText._(buf.toString(), segs, byId);
+    final text = buf.toString();
+    debugFlattenedChars += text.length;
+    return DocumentText._(text, segs, byId);
   }
 
   /// The editable plain text a node contributes to the stream, or null if it

@@ -12,6 +12,7 @@ import 'package:super_drag_and_drop/super_drag_and_drop.dart' as sdd;
 import '../editing/search.dart';
 import '../model/attributes.dart';
 import '../model/delta.dart';
+import '../model/document.dart';
 import '../model/document_text.dart';
 import '../model/node.dart';
 import '../model/position.dart';
@@ -307,6 +308,47 @@ class _MarkdownEditorState extends State<MarkdownEditor>
 
   // ── Active block + IME sync ──────────────────────────────────────────────
 
+  /// The IME window: a [DocumentText] over only the editable block(s) the
+  /// selection touches — one block for a collapsed caret, the contiguous span
+  /// for a cross-block selection. The OS never sees the whole document, so a
+  /// keystroke costs O(active block), not O(document) (cf. CodeMirror/ProseMirror
+  /// local-change model; super_editor's selected-node IME serialization).
+  /// Returns null when the selection has no editable block (e.g. an image).
+  DocumentText? _imeWindow() {
+    final doc = _c.document;
+    bool editable(Node n) => n is TextBlockNode || n is CodeBlockNode;
+    final sel = _c.selection;
+    int lo, hi;
+    if (sel == null) {
+      lo = hi = 0;
+    } else {
+      final iBase = doc.indexOfId(sel.base.nodeId);
+      final iExt = doc.indexOfId(sel.extent.nodeId);
+      if (iBase < 0 || iExt < 0) {
+        lo = hi = 0;
+      } else {
+        lo = iBase < iExt ? iBase : iExt;
+        hi = iBase < iExt ? iExt : iBase;
+      }
+    }
+    // Include one editable neighbor on each side so backspace-at-start merges
+    // with the previous block and Enter-splits flow into the next — without
+    // pulling in the whole document (latency stays O(selection span + 2)).
+    final from = (lo - 1).clamp(0, doc.nodes.length - 1);
+    final to = (hi + 1).clamp(0, doc.nodes.length - 1);
+    final window = <Node>[
+      for (var i = from; i <= to; i++)
+        if (editable(doc.nodes[i])) doc.nodes[i],
+    ];
+    if (window.isEmpty) {
+      // Fall back to the first editable block so an empty doc still types.
+      final first = doc.nodes.isNotEmpty ? doc.nodes.first : null;
+      if (first != null && editable(first)) window.add(first);
+    }
+    if (window.isEmpty) return null;
+    return DocumentText.of(Document(window));
+  }
+
   TextBlockNode? get _activeBlock {
     final sel = _c.selection;
     final id = sel?.extent.nodeId;
@@ -348,8 +390,8 @@ class _MarkdownEditorState extends State<MarkdownEditor>
     }
   }
 
-  /// Mirrors the *whole document* to the IME as one text stream (§13 — one
-  /// editor): the OS sees a single field, and selection is in global offsets.
+  /// Mirrors the selection's block window to the IME (§13 — one editor; the
+  /// window keeps it O(active block) per keystroke, not O(document)).
   void _syncImeFromModel() {
     // When editing a table cell, the IME windows to that cell's text.
     final cell = _activeCell;
@@ -375,7 +417,12 @@ class _MarkdownEditorState extends State<MarkdownEditor>
         return;
       }
     }
-    final dt = DocumentText.of(_c.document);
+    final dt = _imeWindow();
+    if (dt == null) {
+      _imeValue = const TextEditingValue();
+      if (_connection?.attached ?? false) _connection!.setEditingState(_imeValue);
+      return;
+    }
     final text = dt.text;
     final sel = _c.selection;
     var base = text.length;
@@ -457,18 +504,16 @@ class _MarkdownEditorState extends State<MarkdownEditor>
       _applyCellEdit(cell, start, deleted, inserted);
       return;
     }
-    final dt = DocumentText.of(_c.document);
-    if (!dt.coversAny) {
+    final dt = _imeWindow();
+    if (dt == null) {
       _imeValue = value;
       return;
     }
     final old = _imeValue.text;
     if (value.text == old) {
-      // Selection-only change — map global offsets back to a document selection.
+      // Selection-only change — map window offsets back to a document selection.
       final s = value.selection;
-      if (s.isValid && dt.coversAny) {
-        _c.selectByOffsets(s.baseOffset, s.extentOffset);
-      }
+      if (s.isValid) _c.setSelection(dt.selectionOf(s.baseOffset, s.extentOffset));
       _imeValue = value;
       return;
     }
@@ -491,25 +536,24 @@ class _MarkdownEditorState extends State<MarkdownEditor>
         if (edit != null) _applyCellEdit(cell, edit.$1, edit.$2, edit.$3);
         continue;
       }
-      final dt = DocumentText.of(_c.document); // re-map: the model just changed
-      if (!dt.coversAny) continue;
+      final dt = _imeWindow(); // window only the selection's block(s)
+      if (dt == null) continue;
       final edit = editFromDelta(delta);
       if (edit == null) {
         final s = delta.selection;
-        if (s.isValid) _c.selectByOffsets(s.baseOffset, s.extentOffset);
+        if (s.isValid) _c.setSelection(dt.selectionOf(s.baseOffset, s.extentOffset));
         continue;
       }
       _applyStreamEdit(dt, edit.$1, edit.$2, edit.$3);
     }
   }
 
-  /// Applies a global-offset stream edit through the unified command pipeline.
-  /// Because the selection is expressed on the whole-document stream, an edit
-  /// that spans a block separator naturally merges/splits blocks — no per-block
-  /// special-casing.
+  /// Applies a window-offset stream edit through the unified command pipeline.
+  /// [dt] is the IME window; an edit that spans a block separator within the
+  /// window naturally merges/splits blocks — no per-block special-casing.
   void _applyStreamEdit(DocumentText dt, int start, int deleted, String inserted) {
     if (!dt.coversAny) return;
-    _c.selectByOffsets(start, start + deleted);
+    _c.setSelection(dt.selectionOf(start, start + deleted));
     if (inserted.isEmpty) {
       _c.deleteBackward();
     } else if (inserted == '\n') {

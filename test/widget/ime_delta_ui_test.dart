@@ -87,9 +87,12 @@ void main() {
 
   testWidgets('deleting the block separator merges blocks (one stream)',
       (tester) async {
-    // Two blocks → stream "aaa\nbbb"; the separator is global offset 3.
+    // Two blocks; with the caret at the start of "bbb" the IME window spans
+    // [aaa, bbb] → "aaa\nbbb", and the separator is at offset 3.
     final (c, client) = await pump(tester, 'aaa\n\nbbb');
     expect(c.document.length, 2);
+    c.placeCaretAt(DocumentPosition.text(c.document.nodes.last.id, 0));
+    await tester.pump();
     client.updateEditingValueWithDeltas(const [
       TextEditingDeltaDeletion(
         oldText: 'aaa\nbbb',
