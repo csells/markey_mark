@@ -18,6 +18,7 @@ import '../model/node.dart';
 import '../model/position.dart';
 import '../model/selection.dart';
 import '../render/code_highlight.dart';
+import '../render/code_layout.dart';
 import '../render/delta_text.dart';
 import '../render/diagram_renderer.dart';
 import '../render/markdown_source_highlight.dart';
@@ -105,6 +106,11 @@ class _MarkdownEditorState extends State<MarkdownEditor>
   /// Per-block laid-out text, keyed by node id (see [_layoutFor]).
   final Map<String, _CachedLayout> _layoutCache = {};
 
+  /// Per-code-block line layouts, keyed by node id (see [_codeLayoutFor]). Kept
+  /// separate from [_layoutCache] because code blocks lay out per-line so a
+  /// keystroke re-shapes only the changed line, not the whole block.
+  final Map<String, CodeLayout> _codeLayoutCache = {};
+
   /// Per-block paint-area keys, used to hit-test which block a drag is over so
   /// selection can extend across blocks.
   final Map<String, GlobalKey> _paintKeys = {};
@@ -142,8 +148,28 @@ class _MarkdownEditorState extends State<MarkdownEditor>
 
   MarkdownEditorController get _c => widget.controller;
 
-  EditorStyle _resolveStyle() =>
-      widget.style ?? EditorStyle.fromTheme(Theme.of(context));
+  // Resolved-style memo. `EditorStyle.fromTheme` builds a fresh instance with no
+  // value-equality, so calling it per frame would mint a new identity every
+  // time and silently defeat every layout cache (which keys on a style
+  // version). Cache the resolved style and bump [_styleVer] only when the
+  // inputs (the explicit widget style or the ambient theme) actually change.
+  EditorStyle? _cachedStyle;
+  EditorStyle? _styleForWidget;
+  ThemeData? _styleForTheme;
+  int _styleVer = 0;
+
+  EditorStyle _resolveStyle() {
+    final theme = Theme.of(context);
+    if (_cachedStyle == null ||
+        _styleForWidget != widget.style ||
+        _styleForTheme != theme) {
+      _cachedStyle = widget.style ?? EditorStyle.fromTheme(theme);
+      _styleForWidget = widget.style;
+      _styleForTheme = theme;
+      _styleVer++;
+    }
+    return _cachedStyle!;
+  }
 
   @override
   void initState() {
@@ -261,34 +287,24 @@ class _MarkdownEditorState extends State<MarkdownEditor>
 
   // ── Per-block text-layout cache (avoid re-shaping unchanged text) ─────────
 
-  /// Returns a laid-out [TextPainter] for [node] at [width], reusing the cache
-  /// unless the block's (immutable) delta or the width changed. Text shaping is
-  /// the dominant cost; this keeps a steady-state edit to one layout per frame
-  /// for the edited block and zero for the rest.
-  TextPainter _layoutFor(Node node, double width) {
+  /// Returns a laid-out [TextPainter] for a text [node] at [width], reusing the
+  /// cache unless the block's (immutable) delta or the width changed. Text
+  /// shaping is the dominant cost; this keeps a steady-state edit to one layout
+  /// per frame for the edited block and zero for the rest. (Code blocks lay out
+  /// per-line via [_codeLayoutFor], so they are not handled here.)
+  TextPainter _layoutFor(TextBlockNode node, double width) {
     final style = _resolveStyle();
-    final Object contentKey =
-        node is CodeBlockNode ? node.code : (node as TextBlockNode).delta;
+    final Object contentKey = node.delta;
     final cached = _layoutCache[node.id];
-    final sameContent = node is CodeBlockNode
-        ? cached?.contentKey == contentKey
-        : identical(cached?.contentKey, contentKey);
     if (cached != null &&
         cached.width == width &&
-        sameContent &&
+        identical(cached.contentKey, contentKey) &&
         cached.styleVersion == _styleVersion) {
       return cached.painter;
     }
     cached?.painter.dispose();
-    final TextSpan span;
-    if (node is CodeBlockNode) {
-      final codeStyle = style.codeTextStyle.copyWith(backgroundColor: null);
-      span = TextSpan(
-          children: _highlighter.highlight(node.code, node.language, codeStyle));
-    } else {
-      final n = node as TextBlockNode;
-      span = deltaToTextSpan(n.delta, baseStyleFor(n, style), style) as TextSpan;
-    }
+    final span =
+        deltaToTextSpan(node.delta, baseStyleFor(node, style), style) as TextSpan;
     final painter = TextPainter(text: span, textDirection: TextDirection.ltr)
       ..layout(maxWidth: width);
     _layoutCache[node.id] =
@@ -296,15 +312,49 @@ class _MarkdownEditorState extends State<MarkdownEditor>
     return painter;
   }
 
+  /// Returns a per-line [CodeLayout] for [node] at [width], reusing the cache so
+  /// editing one line re-shapes only that line (O(changed line)). If the code,
+  /// width and style are all unchanged the cached layout is returned verbatim
+  /// (no tokenize, no shape — caret-blink/selection repaints stay free).
+  CodeLayout _codeLayoutFor(CodeBlockNode node, double width) {
+    final style = _resolveStyle();
+    final prev = _codeLayoutCache[node.id];
+    if (prev != null &&
+        prev.width == width &&
+        prev.styleVersion == _styleVersion &&
+        prev.code == node.code) {
+      return prev;
+    }
+    final base = style.codeTextStyle.copyWith(backgroundColor: null);
+    final next = CodeLayout.build(
+      code: node.code,
+      language: node.language,
+      baseStyle: base,
+      highlighter: _highlighter,
+      width: width,
+      styleVersion: _styleVersion,
+      previous: prev,
+    );
+    _codeLayoutCache[node.id] = next;
+    return next;
+  }
+
   void _disposeLayoutCache() {
     for (final c in _layoutCache.values) {
       c.painter.dispose();
     }
     _layoutCache.clear();
+    for (final c in _codeLayoutCache.values) {
+      c.dispose();
+    }
+    _codeLayoutCache.clear();
   }
 
   /// Bumped when the resolved style changes so cached layouts invalidate.
-  int get _styleVersion => _resolveStyle().hashCode;
+  int get _styleVersion {
+    _resolveStyle(); // ensure the memo (and version) is current
+    return _styleVer;
+  }
 
   // ── Active block + IME sync ──────────────────────────────────────────────
 
@@ -637,10 +687,13 @@ class _MarkdownEditorState extends State<MarkdownEditor>
 
   void _placeCaret(Node node, Offset localPos, double width) {
     if (widget.readOnly) return;
-    final tp = _layoutFor(node, width);
-    final pos = tp.getPositionForOffset(localPos);
+    final int offset = node is CodeBlockNode
+        ? _codeLayoutFor(node, width).getPositionForOffset(localPos)
+        : _layoutFor(node as TextBlockNode, width)
+            .getPositionForOffset(localPos)
+            .offset;
     _focusNode.requestFocus();
-    final target = DocumentPosition.text(node.id, pos.offset);
+    final target = DocumentPosition.text(node.id, offset);
     // Shift+click extends the existing selection (possibly across blocks).
     if (HardwareKeyboard.instance.isShiftPressed && _c.selection != null) {
       _c.extendSelectionTo(target);
@@ -661,8 +714,12 @@ class _MarkdownEditorState extends State<MarkdownEditor>
   }
 
   (String, int) _localHit(Node node, Offset localPos, double width) {
-    final tp = _layoutFor(node, width);
-    return (node.id, tp.getPositionForOffset(localPos).offset);
+    final offset = node is CodeBlockNode
+        ? _codeLayoutFor(node, width).getPositionForOffset(localPos)
+        : _layoutFor(node as TextBlockNode, width)
+            .getPositionForOffset(localPos)
+            .offset;
+    return (node.id, offset);
   }
 
   /// Returns the (nodeId, text offset) for the editable block (text or code)
@@ -676,8 +733,12 @@ class _MarkdownEditorState extends State<MarkdownEditor>
       final local = box.globalToLocal(globalPos);
       if (local.dy < 0 || local.dy > box.size.height) continue;
       final n = _c.document.nodeById(entry.key);
-      if (n is! TextBlockNode && n is! CodeBlockNode) continue;
-      final tp = _layoutFor(n!, box.size.width);
+      if (n is CodeBlockNode) {
+        return (entry.key, _codeLayoutFor(n, box.size.width)
+            .getPositionForOffset(local));
+      }
+      if (n is! TextBlockNode) continue;
+      final tp = _layoutFor(n, box.size.width);
       return (entry.key, tp.getPositionForOffset(local).offset);
     }
     return null;
@@ -1628,9 +1689,9 @@ class _MarkdownEditorState extends State<MarkdownEditor>
       key: ValueKey('markey-block-${node.id}'),
       builder: (context, constraints) {
         final width = constraints.maxWidth;
-        final tp = _layoutFor(node, width);
+        final layout = _codeLayoutFor(node, width);
         final height =
-            math.max(tp.height, style.codeTextStyle.fontSize ?? 16);
+            math.max(layout.height, style.codeTextStyle.fontSize ?? 16);
         return GestureDetector(
           behavior: HitTestBehavior.opaque,
           onTapDown: (d) => _placeCaret(node, d.localPosition, width),
@@ -1645,9 +1706,10 @@ class _MarkdownEditorState extends State<MarkdownEditor>
           child: CustomPaint(
             key: _paintKeyFor(node.id),
             size: Size(width, height),
-            painter: _BlockPainter(
-              textPainter: tp,
-              selection: localSelection,
+            painter: _CodeBlockPainter(
+              layout: layout,
+              selectionStart: localSelection?.start,
+              selectionEnd: localSelection?.end,
               caretOffset: caretOffset,
               showCaret: showCaret,
               caretBlink: _caretBlink,
@@ -2036,6 +2098,65 @@ class _BlockPainter extends CustomPainter {
   bool shouldRepaint(_BlockPainter old) =>
       !identical(old.textPainter, textPainter) ||
       old.selection != selection ||
+      old.caretOffset != caretOffset ||
+      old.showCaret != showCaret ||
+      old.selectionColor != selectionColor ||
+      old.caretColor != caretColor;
+}
+
+/// Paints a code block from its per-line [CodeLayout] (caret blink only
+/// repaints; the layout never re-shapes here). Selection/caret offsets are
+/// char offsets into the block's code string.
+class _CodeBlockPainter extends CustomPainter {
+  _CodeBlockPainter({
+    required this.layout,
+    required this.selectionStart,
+    required this.selectionEnd,
+    required this.caretOffset,
+    required this.showCaret,
+    required this.caretBlink,
+    required this.selectionColor,
+    required this.caretColor,
+  }) : super(repaint: caretBlink);
+
+  final CodeLayout layout;
+  final int? selectionStart;
+  final int? selectionEnd;
+  final int? caretOffset;
+  final bool showCaret;
+  final ValueListenable<bool> caretBlink;
+  final Color selectionColor;
+  final Color caretColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    if (selectionStart != null &&
+        selectionEnd != null &&
+        selectionStart != selectionEnd) {
+      final paint = Paint()..color = selectionColor;
+      for (final rect in layout.getBoxesForSelection(
+          selectionStart!, selectionEnd!)) {
+        canvas.drawRect(rect, paint);
+      }
+    }
+
+    layout.paint(canvas, Offset.zero);
+
+    if (showCaret && caretOffset != null && caretBlink.value) {
+      final off = layout.getOffsetForCaret(caretOffset!);
+      final height = layout.getFullHeightForCaret(caretOffset!);
+      canvas.drawRect(
+        Rect.fromLTWH(off.dx, off.dy, 2, height),
+        Paint()..color = caretColor,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(_CodeBlockPainter old) =>
+      !identical(old.layout, layout) ||
+      old.selectionStart != selectionStart ||
+      old.selectionEnd != selectionEnd ||
       old.caretOffset != caretOffset ||
       old.showCaret != showCaret ||
       old.selectionColor != selectionColor ||

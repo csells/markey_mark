@@ -213,9 +213,34 @@ expensive O(n) (whole-document string flatten) and a 4k-block timing test gave
 false confidence; the flat-`List` `indexOfId` scans and copy-on-write were still
 O(n) per keystroke. Now genuinely O(log n).
 
-**Remaining perf frontier — intra-block:** per-keystroke cost is now O(log n) in
-*block count* and O(active block size) in characters. A single pathologically
-large block (e.g. a 50k-char pasted code block) still re-shapes one `TextPainter`
-and re-flattens that block per keystroke — O(block size). The research answer
-(CodeMirror's viewport line rendering) is line-based layout within a block,
-re-shaping only changed/visible lines. Tracked; not yet addressed.
+**Intra-block layout is now per-line (O(changed line) shaping).** A code block —
+the realistic "pathologically large block" (a pasted file of hundreds/thousands
+of lines) — no longer re-shapes one monolithic `TextPainter` per keystroke.
+Following CodeMirror's viewport line rendering, a code block lays out **per
+line**: each line is its own laid-out `TextPainter`, cached by value (its
+highlighted content + width + style) in `CodeLayout`. Editing one line changes
+only that line's content, so only that line re-shapes — the rest are reused by
+signature, independent of their position (so inserting/deleting a line shifts
+the others without re-shaping them). Highlighting is still computed across the
+whole block so multi-line constructs (`/* … */`) colour correctly, but
+tokenizing is cheap relative to shaping; shaping — the dominant cost — is what
+became incremental. `CodeLayout` exposes the same geometry the caret/selection/
+hit-testing need (`getOffsetForCaret`, `getPositionForOffset`,
+`getBoxesForSelection`, `paint`), composing per-line painters by vertical
+offset. Gated by `code_layout_perf_test` via `CodeLayout.debugShapedChars`
+(a timing-free counter of characters run through `TextPainter.layout`): a
+keystroke in a 1,500-line code block re-shapes O(one line), and per-keystroke
+shaping is constant as the block grows 30×.
+
+*Layout-cache correctness fix found while building this:* `_resolveStyle()`
+minted a fresh `EditorStyle` (no value-equality) every call, so `_styleVersion`
+(its identity hash) changed on every frame and **silently invalidated every
+layout cache** whenever no explicit style was supplied. The resolved style is
+now memoized (re-derived only when the explicit style or ambient theme changes),
+so the text- and code-block layout caches actually persist across keystrokes.
+
+**Remaining sub-frontier:** highlight *tokenizing* a giant block is still
+O(block) per keystroke (cheap vs. shaping, but not incremental). The next step
+would be CodeMirror-style stateful per-line tokenizing (each line's start state
+is the previous line's end state) so even tokenizing is O(changed lines forward
+until the state stabilizes). Tracked; shaping — the dominant cost — is solved.
