@@ -143,6 +143,17 @@ void main() {
       expect(off(c), 6);
     });
 
+    testWidgets('Ctrl+Backspace deletes the previous word', (tester) async {
+      final c = await pump(tester, 'foo bar baz');
+      final id = c.document.nodes.first.id;
+      c.placeCaretAt(DocumentPosition.text(id, 11)); // end
+      await tester.pump();
+      await key(tester, LogicalKeyboardKey.backspace, control: true);
+      expect((c.document.nodes.first as TextBlockNode).delta.toPlainText(),
+          'foo bar ');
+      expect(off(c), 8);
+    });
+
     testWidgets('Shift+End extends the selection to the line end',
         (tester) async {
       final c = await pump(tester, 'hello world');

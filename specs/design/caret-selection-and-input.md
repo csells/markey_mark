@@ -91,6 +91,13 @@ extent and we either keep the anchor (`extend`) or collapse to a caret.
 This is the single entry point gestures, the keyboard, and the IME share, over
 the same `DocumentText` global-offset coordinate system as §13.
 
+**Destructive moves reuse the same motor.** `deleteByGranularity(forward,
+granularity)` computes the boundary with `CaretMotor`, selects the span, and
+deletes it as one undo unit — Ctrl/Alt+Backspace and Ctrl/Alt+Delete delete a
+word, Cmd+Backspace (macOS) deletes to the line start. So word/line deletion and
+word/line motion share one implementation (super_editor's `deleteWordUpstream`
+family, unified).
+
 ## 14.5 Vertical movement with a goal column (implemented)
 
 Vertical motion is the one movement that needs paint geometry, so it lives in

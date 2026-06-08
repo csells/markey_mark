@@ -2003,8 +2003,23 @@ class _MarkdownEditorState extends State<MarkdownEditor>
           const _MoveBlockIntent(1),
       const SingleActivator(LogicalKeyboardKey.escape): const _DismissSlashIntent(),
       ..._caretShortcuts(meta),
+      ..._deleteShortcuts(meta),
     };
   }
+
+  /// Word/line deletion (Alt+Backspace/Delete on macOS, Ctrl elsewhere; plus
+  /// Cmd+Backspace delete-to-line-start on macOS), the destructive counterpart
+  /// of the word/line caret moves.
+  Map<ShortcutActivator, Intent> _deleteShortcuts(bool meta) => {
+        SingleActivator(LogicalKeyboardKey.backspace,
+                alt: meta, control: !meta):
+            const _DeleteIntent(false, CaretGranularity.word),
+        SingleActivator(LogicalKeyboardKey.delete, alt: meta, control: !meta):
+            const _DeleteIntent(true, CaretGranularity.word),
+        if (meta)
+          const SingleActivator(LogicalKeyboardKey.backspace, meta: true):
+              const _DeleteIntent(false, CaretGranularity.lineBoundary),
+      };
 
   /// Platform-aware caret/selection key bindings, modelled on Flutter's
   /// `DefaultTextEditingShortcuts` (char/word/line/document × collapse/extend ×
@@ -2081,6 +2096,14 @@ class _MarkdownEditorState extends State<MarkdownEditor>
         }),
         _VerticalMoveIntent: CallbackAction<_VerticalMoveIntent>(onInvoke: (i) {
           _moveCaretVertical(forward: i.forward, extend: i.extend);
+          return null;
+        }),
+        _DeleteIntent: CallbackAction<_DeleteIntent>(onInvoke: (i) {
+          if (!widget.readOnly) {
+            _verticalGoalX = null;
+            _c.deleteByGranularity(
+                forward: i.forward, granularity: i.granularity);
+          }
           return null;
         }),
         _DismissSlashIntent: CallbackAction<_DismissSlashIntent>(onInvoke: (_) {
@@ -2185,6 +2208,13 @@ class _VerticalMoveIntent extends Intent {
   const _VerticalMoveIntent(this.forward, this.extend);
   final bool forward;
   final bool extend;
+}
+
+/// Word / line deletion in a direction (Ctrl/Alt+Backspace etc.).
+class _DeleteIntent extends Intent {
+  const _DeleteIntent(this.forward, this.granularity);
+  final bool forward;
+  final CaretGranularity granularity;
 }
 
 // ── Source-mode highlighting controller ────────────────────────────────────

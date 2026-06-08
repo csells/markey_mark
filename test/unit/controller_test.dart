@@ -263,6 +263,42 @@ void main() {
       expect((c.selection!.extent.nodePosition as TextNodePosition).offset, 11);
       c.dispose();
     });
+
+    test('delete word backward removes the preceding word as one unit', () {
+      final c = MarkdownEditorController(markdown: 'foo bar baz');
+      final id = c.document.nodes.first.id;
+      c.setSelection(caret(id, 7)); // after "bar"
+      c.deleteByGranularity(
+          forward: false, granularity: CaretGranularity.word);
+      expect((c.document.nodes.first as TextBlockNode).delta.toPlainText(),
+          'foo  baz');
+      expect((c.selection!.extent.nodePosition as TextNodePosition).offset, 4);
+      c.undo();
+      expect((c.document.nodes.first as TextBlockNode).delta.toPlainText(),
+          'foo bar baz');
+      c.dispose();
+    });
+
+    test('delete word forward removes the following word', () {
+      final c = MarkdownEditorController(markdown: 'foo bar baz');
+      final id = c.document.nodes.first.id;
+      c.setSelection(caret(id, 4)); // before "bar"
+      c.deleteByGranularity(forward: true, granularity: CaretGranularity.word);
+      expect((c.document.nodes.first as TextBlockNode).delta.toPlainText(),
+          'foo  baz');
+      c.dispose();
+    });
+
+    test('delete to line start clears from the caret to the block start', () {
+      final c = MarkdownEditorController(markdown: 'hello world');
+      final id = c.document.nodes.first.id;
+      c.setSelection(caret(id, 6));
+      c.deleteByGranularity(
+          forward: false, granularity: CaretGranularity.lineBoundary);
+      expect((c.document.nodes.first as TextBlockNode).delta.toPlainText(),
+          'world');
+      c.dispose();
+    });
   });
 
   group('Mode switching (single source of truth)', () {

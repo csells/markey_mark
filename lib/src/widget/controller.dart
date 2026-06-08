@@ -369,6 +369,33 @@ class MarkdownEditorController extends ChangeNotifier {
     if (txn != null) _editor.apply(txn);
   }
 
+  /// Deletes from the caret to the [granularity] boundary in a direction
+  /// (Ctrl/Alt+Backspace delete word, Cmd+Backspace delete to line start, …),
+  /// computed by the shared [CaretMotor] so it behaves like a native field.
+  /// A non-collapsed selection deletes the selection (like a normal delete).
+  void deleteByGranularity(
+      {required bool forward, required CaretGranularity granularity}) {
+    _canRevertRule = false;
+    final sel = selection;
+    if (sel == null) return;
+    if (!sel.isCollapsed) {
+      deleteBackward();
+      return;
+    }
+    final to = CaretMotor(document)
+        .move(sel.extent, forward: forward, granularity: granularity);
+    if (to == null) return;
+    if (to.nodeId != sel.extent.nodeId) {
+      // At a block edge: a backward delete merges one step; forward is a no-op
+      // (block-merge-forward is reserved for the Delete key's IME path).
+      if (!forward) deleteBackward();
+      return;
+    }
+    // Delete the span between the caret and the boundary as one undo unit.
+    setSelection(DocumentSelection(base: sel.extent, extent: to));
+    deleteBackward();
+  }
+
   void toggleMark(String key) {
     _canRevertRule = false;
     final txn = EditCommands.toggleMark(document, selection, key);
