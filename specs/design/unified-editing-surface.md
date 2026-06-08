@@ -195,7 +195,17 @@ the IME value is asserted to be a bounded window (active ± 1), never distant
 blocks; and a wall-clock test asserts typing in a 4,000-block doc stays ~constant
 vs. a 20-block doc.
 
-*Known remaining O(n)-but-cheap:* `Document.replaceAt` copies the node-reference
-list per edit (≈µs at thousands of blocks). For very large documents the
-research answer is a persistent vector (RRB-tree) for `Document.nodes` →
-O(log n); tracked, not yet needed by the latency gates.
+**The document itself is now O(log n) per edit.** `Document` is backed by a
+`PersistentList` (an immutable implicit treap): `replace`/`insert`/`removeAt`/
+`get` are O(log n) with structural sharing — an edit never copies the whole
+node sequence. An `id→index` cache is carried across structure-preserving
+replaces, so `indexOfId`/`nodeById` are O(1) on the hot path (no per-keystroke
+linear scan); `nodeAt(i)`/`length` (O(log n)/O(1)) are used on the hot path
+instead of materializing `nodes`. Gated by `document_perf_test`: typing in a
+**100k-block** document is ~as fast as in a 200-block one, and typing adds no
+linear id scans after priming (`Document.debugIdScans`).
+
+*Earlier mistake, corrected:* the first "latency fixed" pass only removed the
+expensive O(n) (whole-document string flatten) and a 4k-block timing test gave
+false confidence; the flat-`List` `indexOfId` scans and copy-on-write were still
+O(n) per keystroke. Now genuinely O(log n).
