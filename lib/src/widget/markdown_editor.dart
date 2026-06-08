@@ -668,15 +668,17 @@ class _MarkdownEditorState extends State<MarkdownEditor>
   /// Returns the (nodeId, text offset) for the editable block (text or code)
   /// whose painted area contains [globalPos], or null if none does.
   (String, int)? _blockAtGlobal(Offset globalPos) {
-    for (final n in _c.document.nodes) {
-      if (n is! TextBlockNode && n is! CodeBlockNode) continue;
-      final box = _paintKeys[n.id]?.currentContext?.findRenderObject()
-          as RenderBox?;
+    // Iterate only blocks that have been built (a paint key with a live render
+    // object) — i.e. roughly the viewport — never the whole document.
+    for (final entry in _paintKeys.entries) {
+      final box = entry.value.currentContext?.findRenderObject() as RenderBox?;
       if (box == null || !box.attached) continue;
       final local = box.globalToLocal(globalPos);
       if (local.dy < 0 || local.dy > box.size.height) continue;
-      final tp = _layoutFor(n, box.size.width);
-      return (n.id, tp.getPositionForOffset(local).offset);
+      final n = _c.document.nodeById(entry.key);
+      if (n is! TextBlockNode && n is! CodeBlockNode) continue;
+      final tp = _layoutFor(n!, box.size.width);
+      return (entry.key, tp.getPositionForOffset(local).offset);
     }
     return null;
   }
