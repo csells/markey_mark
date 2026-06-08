@@ -9,11 +9,32 @@ On desktop and web (use <kbd>Cmd</kbd> on macOS, <kbd>Ctrl</kbd> elsewhere):
 | <kbd>Ctrl/Cmd</kbd>+<kbd>Z</kbd> | Undo |
 | <kbd>Ctrl/Cmd</kbd>+<kbd>Shift</kbd>+<kbd>Z</kbd> | Redo |
 | <kbd>Ctrl/Cmd</kbd>+<kbd>A</kbd> | Select the whole document |
-| <kbd>←</kbd> / <kbd>→</kbd> | Move the caret (grapheme-aware, across blocks) |
-| <kbd>Shift</kbd>+click | Extend the selection to the click (across blocks) |
 | <kbd>Esc</kbd> | Dismiss the [slash menu](slash-menu.md) |
 
-On mobile, the soft keyboard / IME drives input; selection uses touch gestures.
+## Caret & selection movement
+
+The editor has a full, native caret/selection motor — it works uniformly across
+paragraphs, code blocks, and table cells, and crosses block boundaries.
+
+| Shortcut | Action |
+|----------|--------|
+| <kbd>←</kbd> / <kbd>→</kbd> | Move one character (grapheme cluster), across blocks |
+| <kbd>↑</kbd> / <kbd>↓</kbd> | Move one line up / down, preserving the goal column |
+| <kbd>Ctrl</kbd>+<kbd>←/→</kbd> (<kbd>Alt</kbd> on macOS) | Move by word |
+| <kbd>Home</kbd> / <kbd>End</kbd> (<kbd>Cmd</kbd>+<kbd>←/→</kbd> on macOS) | Move to the **visual** line start / end (soft-wrap aware) |
+| <kbd>Ctrl</kbd>+<kbd>Home/End</kbd> (<kbd>Cmd</kbd>+<kbd>↑/↓</kbd> on macOS) | Move to the start / end of the document |
+| <kbd>Shift</kbd>+ any of the above | Extend the selection instead of moving the caret |
+| <kbd>Ctrl</kbd>+<kbd>Backspace/Delete</kbd> (<kbd>Alt</kbd> on macOS) | Delete the previous / next word |
+| <kbd>Cmd</kbd>+<kbd>Backspace</kbd> (macOS) | Delete to the line start |
+| <kbd>Shift</kbd>+click | Extend the selection to the click (across blocks) |
+
+In **right-to-left** paragraphs (Arabic, Hebrew) the <kbd>←</kbd>/<kbd>→</kbd>
+keys move the caret *visually* (Left moves visually left), matching the script.
+
+On mobile, the soft keyboard / IME drives input and selection uses touch
+gestures: drag the **selection handles** to adjust a selection (a magnifier
+loupe appears while dragging, and the handles track the text as you scroll), and
+long-press for the copy/paste menu.
 
 ## Cross-block selection
 

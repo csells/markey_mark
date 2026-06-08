@@ -99,6 +99,13 @@ void main() {
           forward: false, granularity: CaretGranularity.word);
       expect(off(r), 4); // start of "bar"
     });
+
+    test('word-left over a punctuation run stops at the punctuation start', () {
+      // "foo bar.baz qux": offset 8 is the 'b' of "baz", just after the '.'.
+      final r = motor.move(tp('a', 8),
+          forward: false, granularity: CaretGranularity.word);
+      expect(off(r), 7); // the '.' run
+    });
   });
 
   group('line boundary (logical)', () {
@@ -214,6 +221,20 @@ void main() {
           forward: true, granularity: CaretGranularity.lineBoundary);
       final p = r!.nodePosition as TableCellPosition;
       expect(p.offset, 5); // "other"
+    });
+
+    test('document boundary inside a cell clamps to the cell text', () {
+      final fwd = motor.move(cellPos(1, 0, 1),
+          forward: true, granularity: CaretGranularity.documentBoundary);
+      expect((fwd!.nodePosition as TableCellPosition).offset, 4); // "cell"
+      final back = motor.move(cellPos(1, 0, 3),
+          forward: false, granularity: CaretGranularity.documentBoundary);
+      expect((back!.nodePosition as TableCellPosition).offset, 0);
+      // No movement when already at the boundary → null.
+      expect(
+          motor.move(cellPos(1, 0, 4),
+              forward: true, granularity: CaretGranularity.documentBoundary),
+          isNull);
     });
   });
 
