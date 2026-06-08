@@ -48,6 +48,8 @@ build (parser → layout → `CustomPainter`), not a JS bridge.
 | 14 | [cross-ecosystem-best-practices.md](./cross-ecosystem-best-practices.md) | Best transferable ideas from the whole OSS landscape (ProseMirror, Lexical, CodeMirror, Slate, Quill, muya/Typora, Obsidian, remark/goldmark/markdown-it/pulldown-cmark) + gap list |
 | 15 | [feature-feasibility-and-performance.md](./feature-feasibility-and-performance.md) | What can/can't be done natively cross-platform (the 5 bounded compromises) + performance/latency/resource/responsiveness budgets and their tests |
 | 16 | [documentation.md](./documentation.md) | User-facing docs as a per-feature deliverable: `docs/` Markdown + generated screenshots + MkDocs → GitHub Pages pipeline |
+| 17 | [unified-editing-surface.md](./unified-editing-surface.md) | ADR-008: one editor (one stream, one IME, one selection authority), stable ids, open block registry, the per-keystroke latency frontier (windowed IME, O(log n) document, per-line code layout) |
+| 18 | [caret-selection-and-input.md](./caret-selection-and-input.md) | The caret/selection motor (char/word/line/doc + vertical goal-column movement across blocks), platform key bindings, and the reuse-Flutter-types plan for a11y semantics, mobile handles/magnifier, and bidi |
 
 Supporting research lives in [`../research/`](../research/).
 
