@@ -32,7 +32,14 @@ in its own direction.
 On touch platforms a non-collapsed selection shows draggable handles and a
 magnifier loupe, reusing the platform's native selection-control visuals.
 
+## OS font scaling (dynamic type)
+
+The editor honours `MediaQuery.textScaler`, so the OS / accessibility font-size
+setting enlarges (or shrinks) the rendered text and the caret/selection geometry
+that follows it — across paragraphs, code blocks, and table cells. Changing the
+scale invalidates the layout caches, so it takes effect immediately.
+
 Because the content is custom-rendered, these semantics are added deliberately (a plain
-`CustomPaint` exposes nothing by default). Honoring OS font scaling remains tracked —
-see the design spec's cross-platform and feature-feasibility notes, and
+`CustomPaint` exposes nothing by default). See the design spec's cross-platform and
+feature-feasibility notes, and
 [caret-selection-and-input](../architecture.md) for the full motor design.

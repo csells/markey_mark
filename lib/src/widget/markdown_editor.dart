@@ -162,14 +162,22 @@ class _MarkdownEditorState extends State<MarkdownEditor>
   ThemeData? _styleForTheme;
   int _styleVer = 0;
 
+  /// The OS font-scale (dynamic type), applied to every laid-out painter so the
+  /// editor honours accessibility text sizing. Tracked in the style memo so a
+  /// scale change invalidates every layout cache.
+  TextScaler _textScaler = TextScaler.noScaling;
+
   EditorStyle _resolveStyle() {
     final theme = Theme.of(context);
+    final scaler = MediaQuery.maybeTextScalerOf(context) ?? TextScaler.noScaling;
     if (_cachedStyle == null ||
         _styleForWidget != widget.style ||
-        _styleForTheme != theme) {
+        _styleForTheme != theme ||
+        _textScaler != scaler) {
       _cachedStyle = widget.style ?? EditorStyle.fromTheme(theme);
       _styleForWidget = widget.style;
       _styleForTheme = theme;
+      _textScaler = scaler;
       _styleVer++;
     }
     return _cachedStyle!;
@@ -347,6 +355,7 @@ class _MarkdownEditorState extends State<MarkdownEditor>
     final painter = TextPainter(
       text: span,
       textDirection: resolveBaseDirection(node.delta.toPlainText()),
+      textScaler: _textScaler,
     )..layout(maxWidth: width);
     _layoutCache[node.id] =
         _CachedLayout(width, contentKey, painter, _styleVersion);
@@ -374,6 +383,7 @@ class _MarkdownEditorState extends State<MarkdownEditor>
       highlighter: _highlighter,
       width: width,
       styleVersion: _styleVersion,
+      textScaler: _textScaler,
       previous: prev,
     );
     _codeLayoutCache[node.id] = next;
@@ -1967,8 +1977,11 @@ class _MarkdownEditorState extends State<MarkdownEditor>
     }
     cached?.painter.dispose();
     final span = deltaToTextSpan(delta, base, _resolveStyle()) as TextSpan;
-    final painter = TextPainter(text: span, textDirection: TextDirection.ltr)
-      ..layout(maxWidth: width);
+    final painter = TextPainter(
+      text: span,
+      textDirection: TextDirection.ltr,
+      textScaler: _textScaler,
+    )..layout(maxWidth: width);
     _layoutCache[cacheKey] = _CachedLayout(width, delta, painter, _styleVersion);
     return painter;
   }
