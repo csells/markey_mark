@@ -87,7 +87,12 @@ block) is the "the public API is sufficient" proof
 
 ## 7. Testing & docs
 
-- **~94%+ line coverage** (unit + widget), analyzer clean, `dart format`-clean.
+- **~95% line coverage** (unit + widget), analyzer clean. The remaining gap is
+  concentrated in device-only branches (drag-and-drop platform reads, the
+  `super_clipboard` rich-flavor plugin path, mouse-only gestures, the native
+  context menu) that need real platform channels to exercise — 100% is not
+  reachable without extensive platform mocking, so those are documented rather
+  than faked.
   New this program: clipboard/drop, code-layout fallback, positions, caret-motor
   edges, font scaling, localization, fractional index (property test), custom-
   block codecs, OT convergence, PDF export, off-thread parse. Lowest remaining is
@@ -107,14 +112,15 @@ block) is the "the public API is sufficient" proof
 `_MarkdownEditorState` owns IME, gestures, layout caches, find/replace, DnD,
 clipboard, context menu, slash menu, source mode, painting, keyboard, handles,
 and semantics. It works and is well-tested behaviorally, but it's the
-highest-risk file to change. The standalone helper classes (the painters,
-toolbars, the text-field-semantics render object, the source controller, the
-reorderable-block wrapper) have been split into a
-`widget/internal/editor_internals.dart` `part` file — shrinking the main file
-from ~3.1k to ~2.6k lines while preserving privacy. Fuller decomposition of the
-`State` itself (an IME controller, a gesture→intent layer) is a tracked
-maintainability refactor — no behaviour change, so it carries regression risk
-without user-visible payoff and is sequenced last.
+highest-risk file to change. Two decompositions have landed: the standalone
+helper classes (painters, toolbars, the text-field-semantics render object, the
+source controller, the reorderable-block wrapper) split into a
+`widget/internal/editor_internals.dart` `part` file (3.1k→2.6k lines), and the
+pure **IME-window computation** extracted to a testable top-level function
+(`imeWindow`). Fuller decomposition of the `State` itself (a full IME controller,
+a gesture→intent layer) is a tracked maintainability refactor — no behaviour
+change, so it carries regression risk without user-visible payoff and is
+sequenced last.
 
 ## 9. Honest verdict
 
