@@ -75,6 +75,7 @@ export 'src/widget/clipboard.dart'
         SuperClipboardBridge;
 export 'src/widget/drop.dart' show DroppedItem, DropKind;
 export 'src/widget/markdown_editor.dart' show MarkdownEditor;
+export 'src/widget/labels.dart' show MarkdownEditorLabels;
 export 'src/widget/block_registry.dart' show BlockRegistry, BlockBuilder;
 export 'src/render/delta_text.dart' show deltaToTextSpan;
 export 'src/render/code_highlight.dart'

@@ -68,3 +68,18 @@ Also available programmatically: `controller.moveBlockUp(nodeId)` /
 | <kbd>Ctrl/Cmd</kbd>+<kbd>V</kbd> | Smart-paste: parse clipboard Markdown into formatted blocks |
 
 Also `controller.pasteMarkdown(text)`.
+
+## Localization
+
+All editor chrome strings (toolbar tooltips, find/replace, table controls, the
+formatting bubble) are configurable via `MarkdownEditorLabels`:
+
+```dart
+MarkdownEditor(
+  controller: controller,
+  labels: const MarkdownEditorLabels(bold: 'Gras', italic: 'Italique', find: 'Rechercher'),
+);
+```
+
+Build the labels from your app's `AppLocalizations` to translate the editor
+without forking it. Defaults are English (`MarkdownEditorLabels.english`).

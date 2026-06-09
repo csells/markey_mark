@@ -32,6 +32,7 @@ import 'block_registry.dart';
 import 'clipboard.dart';
 import 'controller.dart';
 import 'drop.dart';
+import 'labels.dart';
 import 'ime_delta.dart';
 
 /// A native, cross-platform WYSIWYG Markdown editor widget.
@@ -54,6 +55,7 @@ class MarkdownEditor extends StatefulWidget {
     this.enableDrop = true,
     this.placeholder,
     this.blockRegistry,
+    this.labels = MarkdownEditorLabels.english,
   });
 
   final MarkdownEditorController controller;
@@ -88,6 +90,10 @@ class MarkdownEditor extends StatefulWidget {
   /// Optional registry of renderers for custom/plugin block types
   /// ([CustomBlockNode]). The open block-set extension point (§13.5).
   final BlockRegistry? blockRegistry;
+
+  /// Localizable UI strings for the editor chrome (toolbar, find/replace,
+  /// table controls, formatting bubble). Defaults to English.
+  final MarkdownEditorLabels labels;
 
   @override
   State<MarkdownEditor> createState() => _MarkdownEditorState();
@@ -1296,7 +1302,8 @@ class _MarkdownEditorState extends State<MarkdownEditor>
     Widget content = Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        if (widget.showToolbar) _Toolbar(controller: _c),
+        if (widget.showToolbar)
+          _Toolbar(controller: _c, labels: widget.labels),
         if (_showFind && _c.mode == EditorMode.wysiwyg) _buildFindBar(style),
         Expanded(child: body),
       ],
@@ -1379,8 +1386,8 @@ class _MarkdownEditorState extends State<MarkdownEditor>
                 child: TextField(
                   key: const Key('markey_find_field'),
                   controller: _findController,
-                  decoration: const InputDecoration(
-                      hintText: 'Find', isDense: true),
+                  decoration: InputDecoration(
+                      hintText: widget.labels.find, isDense: true),
                   onChanged: (_) => _runFind(),
                 ),
               ),
@@ -1388,13 +1395,13 @@ class _MarkdownEditorState extends State<MarkdownEditor>
               Text(_matches.isEmpty ? '0/0' : '${_matchIndex + 1}/${_matches.length}'),
               IconButton(
                 key: const Key('markey_find_prev'),
-                tooltip: 'Previous',
+                tooltip: widget.labels.previousMatch,
                 icon: const Icon(Icons.keyboard_arrow_up),
                 onPressed: () => _findStep(-1),
               ),
               IconButton(
                 key: const Key('markey_find_next'),
-                tooltip: 'Next',
+                tooltip: widget.labels.nextMatch,
                 icon: const Icon(Icons.keyboard_arrow_down),
                 onPressed: () => _findStep(1),
               ),
@@ -1404,18 +1411,18 @@ class _MarkdownEditorState extends State<MarkdownEditor>
                 child: TextField(
                   key: const Key('markey_find_replace_field'),
                   controller: _replaceController,
-                  decoration: const InputDecoration(
-                      hintText: 'Replace', isDense: true),
+                  decoration: InputDecoration(
+                      hintText: widget.labels.replace, isDense: true),
                 ),
               ),
               TextButton(
                 key: const Key('markey_find_replaceall'),
                 onPressed: _replaceAllFind,
-                child: const Text('All'),
+                child: Text(widget.labels.replaceAll),
               ),
               IconButton(
                 key: const Key('markey_find_close'),
-                tooltip: 'Close',
+                tooltip: widget.labels.close,
                 icon: const Icon(Icons.close),
                 onPressed: _closeFind,
               ),
@@ -1591,7 +1598,9 @@ class _MarkdownEditorState extends State<MarkdownEditor>
                   left: 0,
                   right: 0,
                   top: style.padding.top,
-                  child: Center(child: _SelectionToolbar(controller: _c)),
+                  child: Center(
+                      child: _SelectionToolbar(
+                          controller: _c, labels: widget.labels)),
                 ),
             ],
           ),
@@ -1890,14 +1899,14 @@ class _MarkdownEditorState extends State<MarkdownEditor>
             children: [
               IconButton(
                 key: Key('markey-table-addrow-${node.id}'),
-                tooltip: 'Add row',
+                tooltip: widget.labels.addRow,
                 iconSize: 18,
                 icon: const Icon(Icons.add_box_outlined),
                 onPressed: () => _c.addTableRow(node.id),
               ),
               IconButton(
                 key: Key('markey-table-addcol-${node.id}'),
-                tooltip: 'Add column',
+                tooltip: widget.labels.addColumn,
                 iconSize: 18,
                 icon: const Icon(Icons.add_box),
                 onPressed: () => _c.addTableColumn(node.id),
@@ -2830,8 +2839,9 @@ class _RenderTextFieldSemantics extends RenderProxyBox {
 /// A compact floating toolbar shown over a text selection (Medium/Google-Docs
 /// style) for quick inline formatting.
 class _SelectionToolbar extends StatelessWidget {
-  const _SelectionToolbar({required this.controller});
+  const _SelectionToolbar({required this.controller, required this.labels});
   final MarkdownEditorController controller;
+  final MarkdownEditorLabels labels;
 
   @override
   Widget build(BuildContext context) {
@@ -2852,11 +2862,12 @@ class _SelectionToolbar extends StatelessWidget {
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
-            btn('bold', Icons.format_bold, 'bold', 'Bold'),
-            btn('italic', Icons.format_italic, 'italic', 'Italic'),
-            btn('strike', Icons.format_strikethrough, 'strike', 'Strikethrough'),
-            btn('highlight', Icons.highlight, 'highlight', 'Highlight'),
-            btn('code', Icons.code, 'code', 'Inline code'),
+            btn('bold', Icons.format_bold, 'bold', labels.bold),
+            btn('italic', Icons.format_italic, 'italic', labels.italic),
+            btn('strike', Icons.format_strikethrough, 'strike',
+                labels.strikethrough),
+            btn('highlight', Icons.highlight, 'highlight', labels.highlight),
+            btn('code', Icons.code, 'code', labels.inlineCode),
           ],
         ),
       ),
@@ -2867,8 +2878,9 @@ class _SelectionToolbar extends StatelessWidget {
 // ── Toolbar ────────────────────────────────────────────────────────────────
 
 class _Toolbar extends StatelessWidget {
-  const _Toolbar({required this.controller});
+  const _Toolbar({required this.controller, required this.labels});
   final MarkdownEditorController controller;
+  final MarkdownEditorLabels labels;
 
   @override
   Widget build(BuildContext context) {
@@ -2892,20 +2904,20 @@ class _Toolbar extends StatelessWidget {
                       children: [
                         IconButton(
                           key: const Key('markey_undo'),
-                          tooltip: 'Undo',
+                          tooltip: labels.undo,
                           icon: const Icon(Icons.undo),
                           onPressed: controller.canUndo ? controller.undo : null,
                         ),
                         IconButton(
                           key: const Key('markey_redo'),
-                          tooltip: 'Redo',
+                          tooltip: labels.redo,
                           icon: const Icon(Icons.redo),
                           onPressed: controller.canRedo ? controller.redo : null,
                         ),
                         const SizedBox(width: 8),
                         IconButton(
                           key: const Key('markey_bold'),
-                          tooltip: 'Bold',
+                          tooltip: labels.bold,
                           icon: const Icon(Icons.format_bold),
                           onPressed: isSource
                               ? null
@@ -2913,7 +2925,7 @@ class _Toolbar extends StatelessWidget {
                         ),
                         IconButton(
                           key: const Key('markey_italic'),
-                          tooltip: 'Italic',
+                          tooltip: labels.italic,
                           icon: const Icon(Icons.format_italic),
                           onPressed: isSource
                               ? null
@@ -2921,7 +2933,7 @@ class _Toolbar extends StatelessWidget {
                         ),
                         IconButton(
                           key: const Key('markey_h1'),
-                          tooltip: 'Heading 1',
+                          tooltip: labels.heading1,
                           icon: const Icon(Icons.title),
                           onPressed: isSource
                               ? null
@@ -2935,7 +2947,7 @@ class _Toolbar extends StatelessWidget {
                 ),
                 IconButton(
                   key: const Key('markey_toggle_mode'),
-                  tooltip: isSource ? 'Rich text' : 'Markdown source',
+                  tooltip: isSource ? labels.toggleSourceToRich : labels.toggleSourceToMarkdown,
                   icon: Icon(isSource ? Icons.visibility : Icons.code),
                   onPressed: controller.toggleMode,
                 ),
