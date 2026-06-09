@@ -25,8 +25,12 @@ class NodeIdGenerator {
   String next() => '${site}_${(_counter++).toRadixString(36)}';
 
   static final Random _rng = Random();
+  // 2^32 written as a literal, not `1 << 32`: on the web (JS bitwise ops are
+  // 32-bit) `1 << 32` wraps to 0, and nextInt(0) throws. The literal is exact in
+  // a JS double and is the max nextInt accepts (0 < max <= 2^32).
+  static const int _siteBits = 0x100000000;
   static String _randomSite() =>
-      _rng.nextInt(1 << 32).toRadixString(36).padLeft(7, '0');
+      _rng.nextInt(_siteBits).toRadixString(36).padLeft(7, '0');
 }
 
 /// The default, process-wide id generator (one site per process).
