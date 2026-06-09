@@ -38,6 +38,31 @@ void main() {
         alignments: const [TableAlign.left, TableAlign.right],
       ));
     });
+    test('front-matter and html blocks', () {
+      rt(FrontMatterNode(id: 'fm', yaml: 'title: hi'));
+      rt(HtmlBlockNode(id: 'h', html: '<div>x</div>'));
+    });
+  });
+
+  test('transaction with selectionBefore + a table-cell selection round-trips',
+      () {
+    final txn = EditTransaction(
+      operations: [
+        InsertNodeOp(0, TextBlockNode.paragraph(id: 'p', delta: Delta.text('x')))
+      ],
+      selectionBefore: const DocumentSelection.collapsed(DocumentPosition(
+          nodeId: 't', nodePosition: TableCellPosition(1, 2, 3))),
+      selectionAfter: const DocumentSelection(
+        base: DocumentPosition(
+            nodeId: 'i', nodePosition: AtomicNodePosition.upstream()),
+        extent: DocumentPosition(
+            nodeId: 'i', nodePosition: AtomicNodePosition.downstream()),
+      ),
+    );
+    final back = CollaborationWire.decode(CollaborationWire.encode(txn));
+    final cell = back.selectionBefore!.extent.nodePosition as TableCellPosition;
+    expect([cell.row, cell.col, cell.offset], [1, 2, 3]);
+    expect(back.selectionAfter!.base.nodePosition, isA<AtomicNodePosition>());
   });
 
   test('transaction round-trips through JSON', () {

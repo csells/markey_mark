@@ -47,4 +47,25 @@ void main() {
     expect(s, contains('/Type /Page'));
     expect(s.trimRight().endsWith('%%EOF'), isTrue);
   });
+
+  test('renders headings, lists, quotes, todos, code, images, tables', () {
+    final doc = Markdown.parse(
+      '# H1\n## H2\n### H3\n#### H4\n\n'
+      '- bullet\n1. numbered\n- [ ] todo\n- [x] done\n\n'
+      '> a quote\n\n'
+      '```\ncode line one\ncode line two\n```\n\n'
+      '![alt](pic.png)\n\n'
+      '| a | b |\n|---|---|\n| c | d |\n\n'
+      'A reallyreallyreallyreallyreallyreallyreallyreallylongword here.',
+    );
+    final s = asLatin1(Markdown.toPdf(doc));
+    expect(s, contains('H1'));
+    expect(s, contains('bullet'));
+    expect(s, contains('a quote'));
+    expect(s, contains('code line one')); // Courier code path
+    expect(s, contains('[image: pic.png]'));
+    expect(s, contains('[table]')); // non-text block placeholder
+    expect(s.startsWith('%PDF-1.'), isTrue);
+    expect(s.trimRight().endsWith('%%EOF'), isTrue);
+  });
 }
