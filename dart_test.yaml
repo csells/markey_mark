@@ -1,0 +1,8 @@
+# Test tags. The `screenshots` and `golden` suites are excluded from the normal
+# `flutter test` run (they generate docs images / compare reference images);
+# run them explicitly, e.g. `flutter test --tags golden`.
+tags:
+  screenshots:
+    skip: false
+  golden:
+    skip: false
