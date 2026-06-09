@@ -1,0 +1,6 @@
+# Exclude repo-only material from the published pub.dev archive. These are the
+# design specs and the documentation site (built/served from the repo, not
+# needed by package consumers). Keeping `docs/` out of the package also avoids
+# pub's "rename top-level docs to doc" lint.
+docs/
+specs/

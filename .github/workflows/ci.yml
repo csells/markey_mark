@@ -26,9 +26,15 @@ jobs:
       # formatter, so a hard gate would flip on a toolchain bump. Migrate in one
       # dedicated commit, then re-add `--set-exit-if-changed`.
       - run: dart format --output=none lib test || true
+      # Exclude `golden` here too: golden/pixel-exact tests are only stable on a
+      # single canonical platform (Linux), so they run in the dedicated step
+      # below rather than across every OS.
       - name: Unit & widget tests (with coverage)
-        run: flutter test --coverage --exclude-tags screenshots
+        run: flutter test --coverage --exclude-tags "screenshots || golden"
+      # Golden / pixel-exact reference tests, canonical on Linux only. Running
+      # them on macOS/Windows produces sub-pixel anti-aliasing diffs.
       - name: Golden image tests
+        if: matrix.os == 'ubuntu-latest'
         run: flutter test --tags golden
       - name: Upload coverage (Ubuntu only)
         if: matrix.os == 'ubuntu-latest'
