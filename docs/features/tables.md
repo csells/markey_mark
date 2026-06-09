@@ -20,3 +20,10 @@ the table round-trips to clean Markdown.
 
 Tables are **editable in place**: click any cell to edit it, and use the add-row / add-column
 buttons beneath the table to grow it. Cells accept inline Markdown (e.g. `**bold**`, `[links](…)`), so formatting round-trips. Every edit is undoable and reflected in the Markdown.
+
+## Cell navigation
+
+Press <kbd>Tab</kbd> to move the caret to the next cell (wrapping to the next
+row), and <kbd>Shift</kbd>+<kbd>Tab</kbd> to move back. <kbd>Tab</kbd> from the
+last cell appends a new row and lands in its first cell. Outside a table,
+<kbd>Tab</kbd> falls through to normal focus traversal.

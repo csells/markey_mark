@@ -544,6 +544,40 @@ class _MarkdownEditorState extends State<MarkdownEditor>
     return null;
   }
 
+  /// Tab / Shift+Tab navigation between table cells (row-major, wrapping). Tab
+  /// off the last cell appends a new row and lands in its first cell.
+  void _moveToCell({required bool forward}) {
+    final cell = _activeCell;
+    if (cell == null) return;
+    final (id, row, col) = cell;
+    final table = _c.document.nodeById(id);
+    if (table is! TableNode) return;
+    final cols = table.columnCount;
+    var r = row;
+    var c = col;
+    if (forward) {
+      c++;
+      if (c >= cols) {
+        c = 0;
+        r++;
+      }
+      if (r >= table.rowCount) {
+        _c.addTableRow(id); // grow the table; the new row is at `table.rowCount`
+        r = table.rowCount;
+        c = 0;
+      }
+    } else {
+      c--;
+      if (c < 0) {
+        c = cols - 1;
+        r--;
+      }
+      if (r < 0) return; // already at the first cell
+    }
+    _c.placeCaretAt(
+        DocumentPosition(nodeId: id, nodePosition: TableCellPosition(r, c, 0)));
+  }
+
   Delta? _cellDelta((String, int, int) cell) {
     final t = _c.document.nodeById(cell.$1);
     if (t is! TableNode) return null;
@@ -2273,6 +2307,9 @@ class _MarkdownEditorState extends State<MarkdownEditor>
       const SingleActivator(LogicalKeyboardKey.arrowDown, alt: true):
           const _MoveBlockIntent(1),
       const SingleActivator(LogicalKeyboardKey.escape): const _DismissSlashIntent(),
+      const SingleActivator(LogicalKeyboardKey.tab): const _CellTabIntent(true),
+      const SingleActivator(LogicalKeyboardKey.tab, shift: true):
+          const _CellTabIntent(false),
       ..._caretShortcuts(meta),
       ..._deleteShortcuts(meta),
     };
@@ -2380,6 +2417,15 @@ class _MarkdownEditorState extends State<MarkdownEditor>
           _moveToVisualLineBoundary(forward: i.forward, extend: i.extend);
           return null;
         }),
+        // Tab is only consumed when the caret is in a table cell; otherwise it
+        // falls through to normal focus traversal.
+        _CellTabIntent: _ConditionalAction<_CellTabIntent>(
+          () => _activeCell != null && !widget.readOnly,
+          (i) {
+            _moveToCell(forward: i.forward);
+            return null;
+          },
+        ),
         _DeleteIntent: CallbackAction<_DeleteIntent>(onInvoke: (i) {
           if (!widget.readOnly) {
             _verticalGoalX = null;
@@ -2504,6 +2550,30 @@ class _DeleteIntent extends Intent {
   const _DeleteIntent(this.forward, this.granularity);
   final bool forward;
   final CaretGranularity granularity;
+}
+
+/// Move to the next/previous table cell (Tab / Shift+Tab).
+class _CellTabIntent extends Intent {
+  const _CellTabIntent(this.forward);
+  final bool forward;
+}
+
+/// An [Action] that only handles (consumes) its key when [enabled] is true, so
+/// the binding falls through otherwise (e.g. Tab → focus traversal outside a
+/// table cell).
+class _ConditionalAction<T extends Intent> extends Action<T> {
+  _ConditionalAction(this.enabled, this.onInvoke);
+  final bool Function() enabled;
+  final Object? Function(T) onInvoke;
+
+  @override
+  bool isEnabled(T intent) => enabled();
+
+  @override
+  bool consumesKey(T intent) => enabled();
+
+  @override
+  Object? invoke(T intent) => onInvoke(intent);
 }
 
 // ── Source-mode highlighting controller ────────────────────────────────────
