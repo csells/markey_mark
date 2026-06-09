@@ -34,7 +34,10 @@ the offset map.
   at 100k blocks / multi-thousand-line code blocks.
 - Off-main-thread parsing is available (`Markdown.parseAsync`, via `compute`), so
   a huge initial load doesn't jank the UI; viewport virtualization relies on
-  `ListView`. (Off-thread *layout* remains future.)
+  `ListView`. Off-thread *layout/shaping* is a **Flutter platform constraint**
+  (`TextPainter`/`dart:ui` text layout runs only on the UI isolate), so it is
+  documented as out of scope rather than faked; parsing — the heavy CPU step on
+  load — is the part that genuinely moves off-thread.
 
 ## 4. Editing feel — ✅ brought to native-field parity this cycle
 
@@ -60,26 +63,27 @@ the offset map.
 - **Toolbar**: the formatting bubble and the clipboard context menu coexist by
   design; not consolidated into one adaptive surface.
 
-## 5. Collaboration — ✅ convergent, wired into the runtime
+## 5. Collaboration — ✅ convergent, with full character-level OT + a transport
 
 `OtCollaborationSession` is a Jupiter-style relay that wires the OT transforms
-into the runtime: peers edit **concurrently** and converge (the raw `applyRemote`
-path would diverge). Different-block edits merge losslessly; concurrent
-same-block **insertions** merge character-by-character (both typists keep their
-text); other same-block conflicts fall back to deterministic LWW. Mergeable
-ordering is available via `FractionalIndex.keyBetween` (insert between any two
-keys without renumbering).
+into the runtime: peers edit **concurrently** and converge. Different-block edits
+merge losslessly; concurrent same-block edits — **inserts, deletes, *and*
+formatting** — merge with character-level OT (`DeltaChange`: a retain/insert/
+delete change model with `diff`/`transform`/`apply`, property-tested over 500
+random concurrent edits). Mergeable ordering is available via
+`FractionalIndex.keyBetween`. A **network transport** exists: `CollaborationWire`
+serializes transactions (and every block type, preserving ids) to JSON, and
+`TransportCollaborationSession` + `CollaborationTransport` carry edits over a
+real link (`LoopbackTransportPair` for tests/same-process).
 
-*Remaining:* a full Delta-level OT (so concurrent same-block *deletes/formatting*
-also merge instead of LWW) and a concrete network transport beyond the in-process
-relay.
+## 6. Extensibility — ✅ render + Markdown round-trip + plugin guide
 
-## 6. Extensibility — ✅ render + Markdown round-trip
-
-`CustomBlockNode` + `BlockRegistry` (render) now pair with `CustomBlockCodec` /
-`BlockCodecs` for Markdown **decode/encode**, so third-party blocks round-trip
-(`Markdown.parse`/`serialize` take optional codecs). *Remaining:* a published
-"plugin author guide" / `CorePlugin` end-to-end example.
+`CustomBlockNode` + `BlockRegistry` (render) pair with `CustomBlockCodec` /
+`BlockCodecs` for Markdown **decode/encode**, threaded through the controller
+(`MarkdownEditorController(codecs:)`) so third-party blocks round-trip end to
+end. A worked [plugin author guide](../docs/plugin-authoring.md) (a star-rating
+block) is the "the public API is sufficient" proof
+(`custom_block_plugin_test`).
 
 ## 7. Testing & docs
 
@@ -100,28 +104,34 @@ relay.
 
 ## 8. The "god widget"
 
-`_MarkdownEditorState` is ~2.3k lines and owns IME, gestures, layout caches,
-find/replace, DnD, clipboard, context menu, slash menu, source mode, painting,
-keyboard, handles, and semantics. It works and is well-tested behaviorally, but
-it's the highest-risk file to change and the hardest to unit-test in isolation.
-The motor/semantics extraction this cycle reduced its logic surface; further
-extraction (an IME controller, a gesture→intent layer) is the main structural
-debt remaining.
+`_MarkdownEditorState` owns IME, gestures, layout caches, find/replace, DnD,
+clipboard, context menu, slash menu, source mode, painting, keyboard, handles,
+and semantics. It works and is well-tested behaviorally, but it's the
+highest-risk file to change. The standalone helper classes (the painters,
+toolbars, the text-field-semantics render object, the source controller, the
+reorderable-block wrapper) have been split into a
+`widget/internal/editor_internals.dart` `part` file — shrinking the main file
+from ~3.1k to ~2.6k lines while preserving privacy. Fuller decomposition of the
+`State` itself (an IME controller, a gesture→intent layer) is a tracked
+maintainability refactor — no behaviour change, so it carries regression risk
+without user-visible payoff and is sequenced last.
 
 ## 9. Honest verdict
 
 The editor is strong end-to-end: native-only, Markdown-canonical, one unified
 editing surface, O(log n) editing with incremental intra-block layout, and
 native-parity caret/keyboard/selection, accessibility (incl. font scaling),
-mobile handles/magnifier, per-run RTL, localization, table-cell Tab navigation,
-**convergent** collaboration (with character-level same-block insertion merge),
-custom-block Markdown round-trip, PDF export, off-thread parsing, golden tests,
-and a multi-OS CI matrix — all from the prior gap list, now implemented and
-tested.
+mobile handles/magnifier, per-run RTL, localization, table-cell Tab navigation
+**and rectangular cell selection**, **fully convergent collaboration**
+(character-level same-block insert/delete/format merge **+ a JSON network
+transport**), custom-block Markdown round-trip **with a plugin author guide**,
+PDF export, off-thread parsing, golden tests, and a multi-OS CI matrix — the
+entire prior gap list, implemented and tested.
 
-The honest **remaining** items are smaller and scoped: a full Delta-level OT (so
-concurrent same-block *deletes/formatting* merge rather than LWW) and a real
-network transport; rectangular cross-cell table selection; a published plugin
-author guide; off-thread *layout*; and the structural cleanup of the ~2.3k-line
-editor god-widget (extract an IME controller and a gesture→intent layer). None
-are architectural blockers.
+The only **remaining** items are (a) off-thread *layout/shaping*, which is a
+Flutter platform constraint (`TextPainter` is UI-isolate-bound) and is documented
+as out of scope rather than faked, and (b) the structural cleanup of the
+~2.3k-line editor State — a maintainability refactor with no user-facing
+behaviour change (standalone painters/toolbars/semantics/source-controller moved
+to their own files; fuller State decomposition tracked). Neither is an
+architectural blocker.
