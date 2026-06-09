@@ -1,4 +1,5 @@
 import 'package:flutter/gestures.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:markey_mark/markey_mark.dart';
@@ -125,5 +126,57 @@ void main() {
     expect(find.text('Paste'), findsNothing);
     expect(find.text('Cut'), findsNothing);
     await teardown(tester);
+  });
+
+  testWidgets('Escape dismisses the context menu', (tester) async {
+    final c = await pump(tester, 'hello world', FakeClipboardBridge());
+    await tester.tapAt(blockCenter(tester, c), buttons: kSecondaryButton);
+    await tester.pump();
+    expect(find.text('Paste'), findsOneWidget);
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    expect(find.text('Paste'), findsNothing);
+    await teardown(tester);
+  });
+
+  testWidgets('tapping elsewhere dismisses the context menu', (tester) async {
+    final c = await pump(tester, 'hello world', FakeClipboardBridge());
+    await tester.tapAt(blockCenter(tester, c), buttons: kSecondaryButton);
+    await tester.pump();
+    expect(find.text('Paste'), findsOneWidget);
+    await tester.tapAt(const Offset(30, 380)); // primary tap in empty editor space
+    await tester.pump();
+    expect(find.text('Paste'), findsNothing);
+    await teardown(tester);
+  });
+
+  testWidgets('source field sets a visible selection color', (tester) async {
+    final c = await pump(tester, '# Title', FakeClipboardBridge());
+    c.toggleMode(); // WYSIWYG -> source
+    await tester.pump();
+    final field = find.byKey(const Key('markey_source_field'));
+    expect(field, findsOneWidget);
+    // Before the fix the source TextField had no TextSelectionTheme ancestor,
+    // so the selection was invisible against the highlighted source.
+    final selTheme = tester
+        .widgetList<TextSelectionTheme>(
+          find.ancestor(of: field, matching: find.byType(TextSelectionTheme)),
+        )
+        .first;
+    expect(selTheme.data.selectionColor, isNotNull);
+    await teardown(tester);
+  });
+
+  testWidgets('web: editor mounts/unmounts cleanly with context-menu suppression',
+      (tester) async {
+    // On web the editor calls BrowserContextMenu.disableContextMenu() in
+    // initState and re-enables it on dispose. Assert that builds and tears down
+    // without throwing on the web target. (The actual suppression is a global
+    // browser effect, verified in a real browser — it isn't observable through
+    // flutter_test's mocked platform channel, so we don't assert on it here.)
+    await pump(tester, 'hi', FakeClipboardBridge());
+    expect(find.byType(MarkdownEditor), findsOneWidget);
+    await teardown(tester);
+    expect(find.byType(MarkdownEditor), findsNothing);
   });
 }

@@ -207,6 +207,9 @@ class _MarkdownEditorState extends State<MarkdownEditor>
       WidgetsBinding.instance
           .addPostFrameCallback((_) => _handlesEntry?.markNeedsBuild());
     });
+    // On web, suppress the browser's own right-click menu so the editor's
+    // context menu appears instead of Chrome's. Re-enabled in dispose.
+    if (kIsWeb) BrowserContextMenu.disableContextMenu();
   }
 
   /// Keep the controller's preserved source caret in sync with the source field.
@@ -231,6 +234,7 @@ class _MarkdownEditorState extends State<MarkdownEditor>
     _replaceController.dispose();
     _connection?.close();
     _hideContextMenu();
+    if (kIsWeb) BrowserContextMenu.enableContextMenu();
     _handlesEntry?.remove();
     _handlesEntry = null;
     _scrollController.dispose();
@@ -1261,6 +1265,8 @@ class _MarkdownEditorState extends State<MarkdownEditor>
         },
       ),
     ];
+    // Focus the editor so ESC (and other shortcuts) reach us while the menu is up.
+    _focusNode.requestFocus();
     _contextMenu.show(
       context: context,
       contextMenuBuilder: (_) => AdaptiveTextSelectionToolbar.buttonItems(
@@ -1285,6 +1291,9 @@ class _MarkdownEditorState extends State<MarkdownEditor>
       (e.buttons & kPrimaryButton) != 0;
 
   void _onMousePointerDown(PointerDownEvent e) {
+    // Any pointer-down in the editor (mouse or touch) dismisses an open context
+    // menu — clicking outside it should close it.
+    _hideContextMenu();
     if (widget.readOnly || !_isPreciseDrag(e)) return;
     final hit = _blockAtGlobal(e.position);
     if (hit == null) return;
@@ -1472,19 +1481,25 @@ class _MarkdownEditorState extends State<MarkdownEditor>
     final style = _resolveStyle();
     return Padding(
       padding: style.padding,
-      child: TextField(
-        key: const Key('markey_source_field'),
-        controller: _sourceController,
-        readOnly: widget.readOnly,
-        maxLines: null,
-        expands: true,
-        textAlignVertical: TextAlignVertical.top,
-        decoration: const InputDecoration(
-          border: InputBorder.none,
-          isCollapsed: true,
+      // Give the source field a visible selection highlight — otherwise it
+      // inherits an ambient color that's hard to see against the syntax-
+      // highlighted Markdown, so you can't tell what's selected.
+      child: TextSelectionTheme(
+        data: TextSelectionThemeData(selectionColor: style.selectionColor),
+        child: TextField(
+          key: const Key('markey_source_field'),
+          controller: _sourceController,
+          readOnly: widget.readOnly,
+          maxLines: null,
+          expands: true,
+          textAlignVertical: TextAlignVertical.top,
+          decoration: const InputDecoration(
+            border: InputBorder.none,
+            isCollapsed: true,
+          ),
+          style: style.codeTextStyle.copyWith(backgroundColor: null),
+          onChanged: _c.updateSourceText,
         ),
-        style: style.codeTextStyle.copyWith(backgroundColor: null),
-        onChanged: _c.updateSourceText,
       ),
     );
   }
@@ -2450,6 +2465,7 @@ class _MarkdownEditorState extends State<MarkdownEditor>
           return null;
         }),
         _DismissSlashIntent: CallbackAction<_DismissSlashIntent>(onInvoke: (_) {
+          _hideContextMenu();
           if (_activeSlashQuery() != null) {
             setState(() => _slashSuppressed = true);
           }
