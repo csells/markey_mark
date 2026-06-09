@@ -10,6 +10,8 @@
 // is resolved by a deterministic tieBreak (e.g. derived from a site id) so the
 // same side wins everywhere.
 
+import '../model/delta.dart';
+import '../model/node.dart';
 import 'operations.dart';
 import 'transaction.dart';
 
@@ -55,12 +57,67 @@ Operation? transformOperation(Operation op, Operation against,
     case ReplaceNodeOp(:final after):
       // Replaces don't move indices; only a same-block replace conflicts.
       if (op is ReplaceNodeOp && oi == ai) {
+        // Character-level merge when both edits are pure insertions: rebase this
+        // op's insertion onto the other's result so BOTH survive (two people
+        // typing in the same paragraph keep their characters). Falls back to
+        // last-writer-wins for deletes/replaces/formatting.
+        final merged = _mergeInsertions(op, against, tieBreak: tieBreak);
+        if (merged != null) return merged;
         if (!tieBreak) return null; // op lost
-        // op won: rebase its `before` onto the other's result so it still applies.
         return ReplaceNodeOp(oi, after, op.after);
       }
       return op;
   }
+}
+
+/// If both [op] and [against] are pure text insertions into the same block,
+/// returns [op] rebased onto [against]'s result (so both insertions land);
+/// otherwise null (caller falls back to last-writer-wins).
+ReplaceNodeOp? _mergeInsertions(ReplaceNodeOp op, ReplaceNodeOp against,
+    {required bool tieBreak}) {
+  final mine = _asInsertion(op);
+  final other = _asInsertion(against);
+  if (mine == null || other == null) return null;
+  final base = against.after;
+  if (base is! TextBlockNode) return null;
+  final (pos1, ins1) = mine;
+  final (pos2, ins2) = other;
+  // The other's insertion already shifted the text; place mine after it when it
+  // starts later, or at the same point and mine loses the tie.
+  final at = (pos2 < pos1 || (pos2 == pos1 && !tieBreak))
+      ? pos1 + ins2.length
+      : pos1;
+  final d = base.delta;
+  final clamped = at.clamp(0, d.length);
+  final merged = d.slice(0, clamped).concat(ins1).concat(d.slice(clamped, d.length));
+  return ReplaceNodeOp(op.index, base, base.copyWithDelta(merged));
+}
+
+/// Interprets a [ReplaceNodeOp] on a text block as a single insertion
+/// `(offset, inserted)`, or null when it isn't a clean insertion.
+(int, Delta)? _asInsertion(ReplaceNodeOp op) {
+  final before = op.before;
+  final after = op.after;
+  if (before is! TextBlockNode || after is! TextBlockNode) return null;
+  final b = before.delta;
+  final a = after.delta;
+  final insLen = a.length - b.length;
+  if (insLen <= 0) return null; // not a pure insertion
+  final bt = b.toPlainText();
+  final at = a.toPlainText();
+  var p = 0;
+  while (p < bt.length && p < at.length && bt[p] == at[p]) {
+    p++;
+  }
+  var s = 0;
+  while (s < bt.length - p && s < at.length - p &&
+      bt[bt.length - 1 - s] == at[at.length - 1 - s]) {
+    s++;
+  }
+  // The inserted region must be exactly [p, a.length - s) and account for the
+  // whole length delta (a clean single contiguous insertion).
+  if (at.length - s - p != insLen) return null;
+  return (p, a.slice(p, a.length - s));
 }
 
 /// Transforms every operation of [incoming] against every operation of

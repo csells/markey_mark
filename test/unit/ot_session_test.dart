@@ -13,7 +13,8 @@ void main() {
   DocumentSelection caretAt(MarkdownEditorController c, int o) =>
       DocumentSelection.collapsed(DocumentPosition.text(c.document.nodes.first.id, o));
 
-  test('concurrent edits to the SAME block converge (block-level LWW)', () {
+  test('concurrent INSERTIONS in the same block both survive (char-level merge)',
+      () {
     final a = MarkdownEditorController(markdown: 'hello');
     final b = MarkdownEditorController(markdown: 'hello');
     final session = OtCollaborationSession([a, b]);
@@ -31,12 +32,28 @@ void main() {
 
     session.flush();
 
-    // The block-level OT converges deterministically (no corruption/divergence):
-    // a same-block conflict is last-writer-wins by site id (B > A wins).
-    // (Character-level merge would need a Delta OT — tracked as future work.)
+    // Character-level merge: both insertions land, and the peers converge.
     expect(text(a), text(b));
-    expect(text(a), 'helloB');
+    expect(text(a), 'AhelloB');
 
+    session.dispose();
+    a.dispose();
+    b.dispose();
+  });
+
+  test('same-block delete vs insert converges (LWW fallback)', () {
+    final a = MarkdownEditorController(markdown: 'hello');
+    final b = MarkdownEditorController(markdown: 'hello');
+    final session = OtCollaborationSession([a, b]);
+    a.setSelection(caretAt(a, 5));
+    a.insertText('!');
+    b.setSelection(DocumentSelection(
+      base: DocumentPosition.text(b.document.nodes.first.id, 0),
+      extent: DocumentPosition.text(b.document.nodes.first.id, 5),
+    ));
+    b.deleteBackward(); // delete "hello" — not an insertion → LWW
+    session.flush();
+    expect(text(a), text(b)); // converged (no divergence)
     session.dispose();
     a.dispose();
     b.dispose();

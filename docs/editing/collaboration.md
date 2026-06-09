@@ -51,12 +51,12 @@ session.flush();     // a transport drives this on receive
 ```
 
 It uses a Jupiter-style relay: each peer applies its edits optimistically; on
-[flush] every buffered op is server-transformed against the canonical ops its
+`flush` every buffered op is server-transformed against the canonical ops its
 sender hadn't seen, then delivered to each other peer client-transformed against
 that peer's still-pending ops, and acknowledged to the sender. Different-block
-edits merge losslessly; a same-block conflict is last-writer-wins by site id
-(every peer agrees). A real network transport drives `flush` on receive.
-
-> Character-level intra-block merge (so two people typing in the *same*
-> paragraph both keep their characters) would need a Delta-level OT layered on
-> this — tracked as future work. Today same-block concurrency is block-level LWW.
+edits merge losslessly, and two people **typing in the same paragraph** both
+keep their characters — concurrent same-block *insertions* are merged
+character-by-character (each rebased onto the other's result by offset, with a
+site-id tie-break). Other same-block conflicts (deletes / replacements /
+formatting) fall back to last-writer-wins by site id; every peer still converges
+deterministically. A real network transport drives `flush` on receive.
