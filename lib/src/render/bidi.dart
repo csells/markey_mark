@@ -19,6 +19,15 @@ TextDirection resolveBaseDirection(String text) {
   return TextDirection.ltr;
 }
 
+/// The strong bidi direction of a single [rune], or null for neutrals (spaces,
+/// digits, punctuation, symbols). Lets the caret move *visually* per-run in
+/// mixed-direction text rather than per-paragraph.
+TextDirection? strongDirectionOf(int rune) {
+  if (_isStrongRtl(rune)) return TextDirection.rtl;
+  if (_isStrongLtr(rune)) return TextDirection.ltr;
+  return null;
+}
+
 /// True if [rune] has a strong RTL bidi class (Hebrew, Arabic, Syriac, Thaana,
 /// NKo, and the Arabic presentation forms).
 bool _isStrongRtl(int rune) =>

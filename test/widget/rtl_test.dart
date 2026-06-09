@@ -86,6 +86,28 @@ void main() {
     expect(off(), 1);
   });
 
+  testWidgets('arrow direction follows the run in a MIXED bidi paragraph',
+      (tester) async {
+    // "abc" (LTR) + "אבג" (RTL): offsets 0..2 are Latin, 3..5 are Hebrew.
+    final c = await pump(tester, 'abcאבג');
+    final id = c.document.nodes.first.id;
+    await tester.tap(find.byType(MarkdownEditor));
+    await tester.pump();
+    int o() => (c.selection!.extent.nodePosition as TextNodePosition).offset;
+
+    // In the LTR run, ArrowRight is logical-forward.
+    c.placeCaretAt(DocumentPosition.text(id, 1));
+    await tester.pump();
+    await arrow(tester, LogicalKeyboardKey.arrowRight);
+    expect(o(), 2);
+
+    // In the RTL run, ArrowLeft is visually-left = logically forward.
+    c.placeCaretAt(DocumentPosition.text(id, 4));
+    await tester.pump();
+    await arrow(tester, LogicalKeyboardKey.arrowLeft);
+    expect(o(), 5);
+  });
+
   testWidgets('arrow keys stay logical (unflipped) in an LTR paragraph',
       (tester) async {
     final c = await pump(tester, 'abcde');

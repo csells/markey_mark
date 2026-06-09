@@ -473,14 +473,27 @@ class _MarkdownEditorState extends State<MarkdownEditor>
   // CaretMotor the keyboard uses, reusing Flutter's `SemanticsConfiguration`
   // (via the `Semantics` widget) rather than reimplementing a11y.
 
-  /// True when the caret's block lays out right-to-left, so the arrow keys move
-  /// the caret *visually* (Left = visually-left = logically forward in RTL).
+  /// True when the caret sits in a right-to-left run, so the arrow keys move the
+  /// caret *visually* (Left = visually-left = logically forward in RTL). Uses the
+  /// strong direction of the character adjacent to the caret (handling mixed
+  /// LTR/RTL paragraphs per-run), falling back to the block's base direction.
   bool _activeBlockIsRtl() {
-    final node = _c.document.nodeById(_c.selection?.extent.nodeId ?? '');
-    if (node is TextBlockNode) {
-      return resolveBaseDirection(node.delta.toPlainText()) == TextDirection.rtl;
+    final ext = _c.selection?.extent;
+    final node = _c.document.nodeById(ext?.nodeId ?? '');
+    if (node is! TextBlockNode) return false;
+    final np = ext!.nodePosition;
+    if (np is! TextNodePosition) return false;
+    final text = node.delta.toPlainText();
+    final runes = text.runes.toList();
+    final o = np.offset.clamp(0, runes.length);
+    // Probe the character before, then after the caret for a strong direction.
+    for (final i in [o - 1, o]) {
+      if (i >= 0 && i < runes.length) {
+        final d = strongDirectionOf(runes[i]);
+        if (d != null) return d == TextDirection.rtl;
+      }
     }
-    return false;
+    return resolveBaseDirection(text) == TextDirection.rtl;
   }
 
   /// The active block's visible text, or '' — the screen-reader value.
