@@ -1,5 +1,3 @@
-# Reference copy for the docs. The live workflow that GitHub Actions runs is
-# .github/workflows/ci.yml — keep the two in sync when editing.
 name: CI
 
 on:

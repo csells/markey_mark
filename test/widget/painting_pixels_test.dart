@@ -96,8 +96,11 @@ void main() {
     return c;
   }
 
+  // Exact selection-color pixel counts depend on platform anti-aliasing, so
+  // this threshold assertion is only stable on the canonical (Linux) runner.
+  // Tagged 'golden' so CI runs it there alongside the reference-image tests.
   testWidgets('a selection paints the selection color onto the canvas',
-      (tester) async {
+      tags: 'golden', (tester) async {
     const key = Key('rb');
     final c = await pump(tester, 'hello world', key);
 

@@ -4,7 +4,6 @@ description: >-
   Google-Docs feel, Markdown as the source of truth, switchable WYSIWYG/source modes.
   No WebView, no JavaScript — 100% native Flutter.
 version: 0.0.1
-publish_to: none
 repository: https://github.com/csells/markey_mark
 
 environment:
