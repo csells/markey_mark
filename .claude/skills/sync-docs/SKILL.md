@@ -1,17 +1,21 @@
 ---
 name: sync-docs
 description: >-
-  Keep the markey_mark user docs in sync with the code whenever a feature is
-  added, changed, removed, or renamed. Use this skill PROACTIVELY in the
-  markey_mark repo any time you touch a user-facing capability — a new block
-  type, input rule, command, export, diagram, toolbar/slash-menu item, keyboard
-  shortcut, or public API — even if the user only asked for the code change and
-  didn't mention docs. In this repo, documentation is part of "done": every
-  feature ships with a page under docs/, a regenerated screenshot if it's
-  visual, an updated README feature list, correct lib/markey_mark.dart exports,
-  and an mkdocs nav entry. Trigger on phrases like "add a feature", "document
-  this", "update the docs", "new block/rule/command", "I added X", or after you
-  implement anything that changes what a user can see or do.
+  Keep the markey_mark user docs in sync with the code whenever a user-facing
+  feature is added, changed, removed, or renamed — a new or modified block type,
+  input rule, slash-menu/toolbar command, export, diagram, keyboard shortcut, or
+  public API in lib/. Use this PROACTIVELY in the markey_mark repo right after
+  you implement such a change, even if the user only asked for code and never
+  mentioned docs: here documentation is part of "done", so the feature's docs
+  page, its committed screenshot (if visual), the README feature list, the
+  lib/markey_mark.dart exports, the mkdocs nav, and specs/gap-analysis.md all
+  have to move together. Trigger on things like "I added/implemented/changed
+  <feature>", "ship it", "document this feature", or "make everything
+  consistent" after a capability change. Do NOT use it for changes with no
+  user-visible effect: internal refactors or bug fixes that keep output
+  identical, dependency bumps, new tests, CI or Pages workflow setup, generating
+  marketing/hero images, or a one-off prose edit to an existing doc (a typo fix
+  or a reworded reference page) that isn't driven by a feature change.
 ---
 
 # Sync markey_mark docs with the code
