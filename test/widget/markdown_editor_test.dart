@@ -474,7 +474,8 @@ void main() {
       await teardown(tester);
     });
 
-    testWidgets('performAction(newline) splits the block', (tester) async {
+    testWidgets('performAction(newline) does NOT split (the delta owns newline)',
+        (tester) async {
       final c = MarkdownEditorController(markdown: 'AB');
       addTearDown(c.dispose);
       await pumpEditor(tester, c);
@@ -485,9 +486,13 @@ void main() {
       ));
       await tester.pump();
 
+      // For a multiline field the newline arrives as a '\n' text delta. The web
+      // engine ALSO fires performAction(newline) for the same keypress, so
+      // acting on it here would double-split (see the web-double-dispatch test
+      // in ime_delta_ui_test). The action alone must be a no-op.
       await tester.testTextInput.receiveAction(TextInputAction.newline);
       await tester.pump();
-      expect(c.document.length, 2);
+      expect(c.document.length, 1);
       await teardown(tester);
     });
 
