@@ -90,6 +90,22 @@ void main() {
         3);
   });
 
+  test('decode throws on unknown op / node kinds', () {
+    expect(() => CollaborationWire.operationFromJson({'op': '?', 'index': 0}),
+        throwsArgumentError);
+    expect(() => CollaborationWire.nodeFromJson({'id': 'x', 'k': '?'}),
+        throwsArgumentError);
+  });
+
+  test('a TransportCollaborationSession can be disposed', () {
+    final c = MarkdownEditorController(markdown: 'x');
+    addTearDown(c.dispose);
+    final link = LoopbackTransportPair();
+    final session = TransportCollaborationSession(c, link.a);
+    session.dispose();
+    link.dispose();
+  });
+
   testWidgets('edits sync between two peers over a loopback transport',
       (tester) async {
     final a = MarkdownEditorController(markdown: 'shared');
