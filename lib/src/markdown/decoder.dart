@@ -4,6 +4,7 @@ import '../model/attributes.dart';
 import '../model/delta.dart';
 import '../model/document.dart';
 import '../model/node.dart';
+import 'block_codecs.dart';
 
 /// Parses Markdown text into a [Document] using `dart-lang/markdown` for
 /// tokenizing and our own AST→model mapping.
@@ -12,7 +13,11 @@ import '../model/node.dart';
 /// marks bold/italic/strikethrough/inline-code/links. Unknown block types fall
 /// back to a paragraph carrying their inline content so nothing is lost.
 class MarkdownDecoder {
-  MarkdownDecoder();
+  MarkdownDecoder({this.codecs = const BlockCodecs()});
+
+  /// Codecs for custom (plugin) blocks; a fenced block whose info string matches
+  /// a codec's fence decodes to a [CustomBlockNode].
+  final BlockCodecs codecs;
 
   md.Document _newMdDocument() => md.Document(
         extensionSet: md.ExtensionSet.gitHubFlavored,
@@ -349,6 +354,11 @@ class MarkdownDecoder {
     final code = _codeBlock(pre);
     if (code.language == 'mermaid') {
       return MermaidNode(source: code.code);
+    }
+    final codec = codecs.byFence(code.language);
+    if (codec != null) {
+      return CustomBlockNode(
+          blockType: codec.blockType, data: codec.decode(code.code));
     }
     return code;
   }

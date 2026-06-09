@@ -63,6 +63,7 @@ export 'src/editing/ot.dart' show transformOperation, transformTransaction;
 export 'src/markdown/decoder.dart' show MarkdownDecoder;
 export 'src/markdown/encoder.dart' show MarkdownEncoder;
 export 'src/markdown/markdown.dart' show Markdown, MarkdownToHtml;
+export 'src/markdown/block_codecs.dart' show CustomBlockCodec, BlockCodecs;
 export 'src/markdown/html_encoder.dart' show HtmlEncoder;
 export 'src/markdown/slug.dart' show slugify, SlugAllocator;
 

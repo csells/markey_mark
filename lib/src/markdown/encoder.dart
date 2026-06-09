@@ -2,6 +2,7 @@ import '../model/attributes.dart';
 import '../model/delta.dart';
 import '../model/document.dart';
 import '../model/node.dart';
+import 'block_codecs.dart';
 
 /// Serializes a [Document] to Markdown text.
 ///
@@ -10,9 +11,14 @@ import '../model/node.dart';
 /// adjacent same-mark runs share markers — producing canonical output (no
 /// `**a****b**`) which is what makes the round trip idempotent.
 class MarkdownEncoder {
-  const MarkdownEncoder({this.blockSeparator = '\n\n'});
+  const MarkdownEncoder(
+      {this.blockSeparator = '\n\n', this.codecs = const BlockCodecs()});
 
   final String blockSeparator;
+
+  /// Codecs for custom (plugin) blocks; a [CustomBlockNode] is serialized as a
+  /// fenced block via its codec.
+  final BlockCodecs codecs;
 
   /// Wrapping inline marks in nesting order (outer → inner) with their markers.
   static const List<String> _wrapping = [
@@ -147,6 +153,13 @@ class MarkdownEncoder {
     }
     if (node is HtmlBlockNode) {
       return node.html; // verbatim — never escaped
+    }
+    if (node is CustomBlockNode) {
+      final codec = codecs.byType(node.blockType);
+      if (codec != null) {
+        return '```${codec.fence}\n${codec.encode(node)}\n```';
+      }
+      return ''; // unknown custom block with no codec: nothing to serialize
     }
     if (node is TextBlockNode) {
       final inline = _encodeDelta(node.delta);

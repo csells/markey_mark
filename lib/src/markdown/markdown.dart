@@ -1,6 +1,7 @@
 import '../model/delta.dart';
 import '../model/document.dart';
 import '../model/node.dart';
+import 'block_codecs.dart';
 import 'decoder.dart';
 import 'encoder.dart';
 import 'html_encoder.dart';
@@ -11,17 +12,25 @@ abstract final class Markdown {
   static const MarkdownEncoder _encoder = MarkdownEncoder();
   static const HtmlEncoder _htmlEncoder = HtmlEncoder();
 
-  /// Parses Markdown [source] into a [Document].
-  static Document parse(String source) => _decoder.convert(source);
+  /// Parses Markdown [source] into a [Document]. Pass [codecs] to decode custom
+  /// (plugin) blocks (fenced blocks whose info string names a registered codec).
+  static Document parse(String source, {BlockCodecs codecs = const BlockCodecs()}) =>
+      codecs.isEmpty
+          ? _decoder.convert(source)
+          : MarkdownDecoder(codecs: codecs).convert(source);
 
   /// Number of full-document serializations performed — a test/CI hook to prove
   /// the `markdown` getter is memoized (not re-serialized on every read).
   static int debugSerializeCount = 0;
 
-  /// Serializes [document] to Markdown text.
-  static String serialize(Document document) {
+  /// Serializes [document] to Markdown text. Pass [codecs] to encode custom
+  /// (plugin) blocks back to their fenced Markdown form.
+  static String serialize(Document document,
+      {BlockCodecs codecs = const BlockCodecs()}) {
     debugSerializeCount++;
-    return _encoder.convert(document);
+    return codecs.isEmpty
+        ? _encoder.convert(document)
+        : MarkdownEncoder(codecs: codecs).convert(document);
   }
 
   /// Serializes [document], also returning each block's start offset in the
