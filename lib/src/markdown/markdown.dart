@@ -1,3 +1,8 @@
+import 'dart:typed_data';
+
+import 'package:flutter/foundation.dart' show compute;
+
+import '../export/pdf_export.dart';
 import '../model/delta.dart';
 import '../model/document.dart';
 import '../model/node.dart';
@@ -40,6 +45,20 @@ abstract final class Markdown {
 
   /// Serializes [document] to semantic HTML.
   static String toHtml(Document document) => _htmlEncoder.convert(document);
+
+  /// Exports [document] to a PDF byte stream (native pure-Dart writer; no
+  /// WebView/JavaScript/dependency).
+  static Uint8List toPdf(Document document) =>
+      const PdfExporter().export(document);
+
+  /// Parses Markdown [source] **off the main isolate** (via `compute`), so a
+  /// large initial load doesn't jank the UI. Equivalent to [parse] but async;
+  /// custom-block codecs aren't supported (closures can't cross isolates).
+  static Future<Document> parseAsync(String source) =>
+      compute(_parseIsolate, source);
+
+  static Document _parseIsolate(String source) =>
+      MarkdownDecoder().convert(source);
 
   /// Parses an inline-Markdown fragment into a [Delta] (used for table cells).
   static Delta inlineToDelta(String source) {
