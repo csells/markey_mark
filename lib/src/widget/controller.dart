@@ -629,6 +629,40 @@ class MarkdownEditorController extends ChangeNotifier {
   void addTableColumn(String tableId) =>
       _applyTable(tableId, (t) => t.withAppendedColumn());
 
+  /// The rectangular range of cells covered by the current selection (anchor and
+  /// extent in different cells of one table), inclusive, as `(top, left, bottom,
+  /// right)` — or null when the selection isn't a multi-cell table range.
+  (int, int, int, int)? selectedTableCellRect() {
+    final sel = selection;
+    if (sel == null) return null;
+    final bp = sel.base.nodePosition;
+    final ep = sel.extent.nodePosition;
+    if (sel.base.nodeId != sel.extent.nodeId) return null;
+    if (bp is! TableCellPosition || ep is! TableCellPosition) return null;
+    if (bp.row == ep.row && bp.col == ep.col) return null; // single cell
+    return (
+      bp.row < ep.row ? bp.row : ep.row,
+      bp.col < ep.col ? bp.col : ep.col,
+      bp.row > ep.row ? bp.row : ep.row,
+      bp.col > ep.col ? bp.col : ep.col,
+    );
+  }
+
+  /// The selected rectangular cell range as TSV (tab-separated rows), or '' when
+  /// there is no multi-cell selection.
+  String selectedTableCellsAsTsv() {
+    final rect = selectedTableCellRect();
+    if (rect == null) return '';
+    final node = document.nodeById(selection!.extent.nodeId);
+    if (node is! TableNode) return '';
+    final (top, left, bottom, right) = rect;
+    return [
+      for (var r = top; r <= bottom; r++)
+        [for (var col = left; col <= right; col++) node.cellText(r, col)]
+            .join('\t'),
+    ].join('\n');
+  }
+
   // ── Find & replace ───────────────────────────────────────────────────────
 
   /// All occurrences of [query] across the document, in order.
@@ -757,6 +791,11 @@ class MarkdownEditorController extends ChangeNotifier {
   /// Builds a [ClipboardPayload] for the current selection, or null when there
   /// is nothing selected.
   ClipboardPayload? selectionPayload() {
+    // A rectangular table-cell selection copies as TSV (spreadsheet-friendly).
+    final tsv = selectedTableCellsAsTsv();
+    if (tsv.isNotEmpty) {
+      return ClipboardPayload(markdown: tsv, plainText: tsv);
+    }
     final md = selectionMarkdown();
     if (md == null || md.isEmpty) return null;
     final sub = _selectionSubDocument();

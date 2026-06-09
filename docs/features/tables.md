@@ -27,3 +27,9 @@ Press <kbd>Tab</kbd> to move the caret to the next cell (wrapping to the next
 row), and <kbd>Shift</kbd>+<kbd>Tab</kbd> to move back. <kbd>Tab</kbd> from the
 last cell appends a new row and lands in its first cell. Outside a table,
 <kbd>Tab</kbd> falls through to normal focus traversal.
+
+## Rectangular cell selection
+
+Click a cell, then <kbd>Shift</kbd>+click another to select the **rectangle** of
+cells between them (the range is highlighted). Copying a cell-range selection
+yields tab-separated values (TSV), so it pastes straight into a spreadsheet.

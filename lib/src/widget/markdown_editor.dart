@@ -1932,11 +1932,19 @@ class _MarkdownEditorState extends State<MarkdownEditor>
                       : null,
                   children: [
                     for (var c = 0; c < node.columnCount; c++)
-                      Padding(
-                        padding: const EdgeInsets.symmetric(
-                            horizontal: 6, vertical: 4),
-                        child: _cellContent(node, r, c, style),
-                      ),
+                      _cellSelected(node.id, r, c)
+                          ? Container(
+                              key: Key('markey-cell-selected-${node.id}-$r-$c'),
+                              color: style.selectionColor,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 4),
+                              child: _cellContent(node, r, c, style),
+                            )
+                          : Padding(
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 6, vertical: 4),
+                              child: _cellContent(node, r, c, style),
+                            ),
                   ],
                 ),
             ],
@@ -1963,6 +1971,21 @@ class _MarkdownEditorState extends State<MarkdownEditor>
         ],
       ),
     );
+  }
+
+  /// Whether cell ([r],[c]) of table [tableId] is inside the current
+  /// rectangular cross-cell selection.
+  bool _cellSelected(String tableId, int r, int c) {
+    final sel = _c.selection;
+    if (sel == null ||
+        sel.base.nodeId != tableId ||
+        sel.extent.nodeId != tableId) {
+      return false;
+    }
+    final rect = _c.selectedTableCellRect();
+    if (rect == null) return false;
+    final (top, left, bottom, right) = rect;
+    return r >= top && r <= bottom && c >= left && c <= right;
   }
 
   Widget _cellContent(TableNode table, int r, int c, EditorStyle style) {
@@ -2047,8 +2070,16 @@ class _MarkdownEditorState extends State<MarkdownEditor>
     if (widget.readOnly) return;
     _focusNode.requestFocus();
     final off = tp.getPositionForOffset(localPos).offset;
-    _c.placeCaretAt(DocumentPosition(
-        nodeId: tableId, nodePosition: TableCellPosition(r, c, off)));
+    final target = DocumentPosition(
+        nodeId: tableId, nodePosition: TableCellPosition(r, c, off));
+    // Shift+tap extends across cells → a rectangular cell selection.
+    if (HardwareKeyboard.instance.isShiftPressed &&
+        _c.selection?.base.nodeId == tableId &&
+        _c.selection?.base.nodePosition is TableCellPosition) {
+      _c.extendSelectionTo(target);
+    } else {
+      _c.placeCaretAt(target);
+    }
   }
 
   Widget _buildMath(MathBlockNode node, EditorStyle style) {
