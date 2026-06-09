@@ -11,11 +11,12 @@ description: >-
   lib/markey_mark.dart exports, the mkdocs nav, and specs/gap-analysis.md all
   have to move together. Trigger on things like "I added/implemented/changed
   <feature>", "ship it", "document this feature", or "make everything
-  consistent" after a capability change. Do NOT use it for changes with no
-  user-visible effect: internal refactors or bug fixes that keep output
-  identical, dependency bumps, new tests, CI or Pages workflow setup, generating
-  marketing/hero images, or a one-off prose edit to an existing doc (a typo fix
-  or a reworded reference page) that isn't driven by a feature change.
+  consistent" after a capability change. Do NOT use it when nothing user-facing
+  changed: internal refactors or bug fixes with identical output, dependency
+  bumps, new tests, CI/Pages setup, generating marketing/hero images, or editing
+  or rewording an existing doc or spec on its own (a typo fix, a clearer
+  architecture page, or refreshing a coverage number in specs/gap-analysis.md) —
+  i.e., prose-only edits not driven by a feature change.
 ---
 
 # Sync markey_mark docs with the code
