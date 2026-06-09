@@ -16,6 +16,7 @@ import '../model/document_text.dart';
 import '../model/node.dart';
 import '../model/position.dart';
 import '../model/selection.dart';
+import '../markdown/block_codecs.dart';
 import '../markdown/markdown.dart';
 import '../markdown/slug.dart';
 import 'clipboard.dart';
@@ -101,16 +102,23 @@ class OutlineEntry {
 /// current mode, and high-level editing intents (which route through the same
 /// command pipeline the UI uses). Listen to it for changes (e.g. autosave).
 class MarkdownEditorController extends ChangeNotifier {
-  MarkdownEditorController({String? markdown, List<InputRule>? inputRules})
+  MarkdownEditorController(
+      {String? markdown,
+      List<InputRule>? inputRules,
+      this.codecs = const BlockCodecs()})
       : _editor = Editor(
           document: markdown != null && markdown.isNotEmpty
-              ? Markdown.parse(markdown)
+              ? Markdown.parse(markdown, codecs: codecs)
               : Document.empty(),
         ),
         inputRules = inputRules ?? defaultInputRules {
     _editor.addListener(_onEditorChanged);
     _editor.onLocalApply = _outgoing.add;
   }
+
+  /// Codecs for custom (plugin) blocks, used when parsing/serializing Markdown so
+  /// `CustomBlockNode`s round-trip (pairs with the editor's `blockRegistry`).
+  final BlockCodecs codecs;
 
   final Editor _editor;
 
@@ -157,7 +165,7 @@ class MarkdownEditorController extends ChangeNotifier {
     if (_mode == EditorMode.source) return _sourceText;
     if (!identical(_serializedFor, document)) {
       _serializedFor = document;
-      _serializedMd = Markdown.serialize(document);
+      _serializedMd = Markdown.serialize(document, codecs: codecs);
     }
     return _serializedMd;
   }
@@ -166,7 +174,7 @@ class MarkdownEditorController extends ChangeNotifier {
     if (_mode == EditorMode.source) {
       _sourceText = value;
     } else {
-      _editor.setDocument(Markdown.parse(value));
+      _editor.setDocument(Markdown.parse(value, codecs: codecs));
     }
     notifyListeners();
   }
@@ -184,14 +192,14 @@ class MarkdownEditorController extends ChangeNotifier {
   void setMode(EditorMode mode) {
     if (mode == _mode) return;
     if (mode == EditorMode.source) {
-      _sourceText = Markdown.serialize(document);
+      _sourceText = Markdown.serialize(document, codecs: codecs);
       final sel = selection;
       sourceCaret =
           sel != null ? markdownOffsetForPosition(sel.extent) : _sourceText.length;
       sourceCaretBase =
           sel != null ? markdownOffsetForPosition(sel.base) : sourceCaret;
     } else {
-      _editor.setDocument(Markdown.parse(_sourceText));
+      _editor.setDocument(Markdown.parse(_sourceText, codecs: codecs));
       final extent = positionForMarkdownOffset(sourceCaret);
       final base = positionForMarkdownOffset(sourceCaretBase);
       if (extent != null) {
@@ -508,7 +516,7 @@ class MarkdownEditorController extends ChangeNotifier {
         .clamp(0, len);
     final index = document.indexOfId(node.id);
 
-    final parsed = Markdown.parse(markdown).nodes;
+    final parsed = Markdown.parse(markdown, codecs: codecs).nodes;
     _canRevertRule = false;
 
     // Inline fast path: a single paragraph merges into the current block.

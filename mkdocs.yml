@@ -62,8 +62,10 @@ nav:
       - Undo & redo: editing/undo-redo.md
       - Document statistics: editing/document-stats.md
       - HTML export: editing/html-export.md
+      - PDF export: editing/pdf-export.md
       - Real-time collaboration: editing/collaboration.md
   - Reference:
       - Architecture: architecture.md
       - Accessibility: accessibility.md
+      - Plugin authoring: plugin-authoring.md
       - Contributing docs: contributing-docs.md
