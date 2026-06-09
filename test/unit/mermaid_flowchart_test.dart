@@ -1,7 +1,43 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:markey_mark/src/diagram/mermaid_flowchart.dart';
 
 void main() {
+  test('parses every node shape', () {
+    final f = parseFlowchart(
+        'graph TD\nA((circle)) --> B[[stadium]]\nC(rounded) --> D{diamond}\n'
+        'E[box]\nF')!;
+    expect(f.nodes['A']!.shape, FlowShape.circle);
+    expect(f.nodes['B']!.shape, FlowShape.stadium);
+    expect(f.nodes['C']!.shape, FlowShape.rounded);
+    expect(f.nodes['D']!.shape, FlowShape.diamond);
+    expect(f.nodes['E']!.shape, FlowShape.rect); // node-only line with label
+    expect(f.nodes['F']!.shape, FlowShape.rect); // bare node-only line
+  });
+
+  testWidgets('FlowchartView paints every shape (LR)', (tester) async {
+    final chart = parseFlowchart(
+        'flowchart LR\nA((c)) --> B[[s]]\nC(r) --> D{d}\nE[box] --> F')!;
+    await tester.pumpWidget(MaterialApp(
+      home: Scaffold(
+        body: Center(
+          child: SizedBox(
+            width: 800,
+            height: 400,
+            child: FlowchartView(
+              chart: chart,
+              textStyle: const TextStyle(fontSize: 12),
+              lineColor: const Color(0xFF333333),
+              fillColor: const Color(0xFFEEEEEE),
+            ),
+          ),
+        ),
+      ),
+    ));
+    await tester.pump();
+    expect(find.byType(FlowchartView), findsOneWidget);
+  });
+
   group('parseFlowchart', () {
     test('parses direction, nodes (shapes/labels) and edges', () {
       final f = parseFlowchart(
