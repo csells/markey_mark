@@ -87,10 +87,10 @@ block) is the "the public API is sufficient" proof
 
 ## 7. Testing & docs
 
-- **~95% line coverage** (unit + widget), analyzer clean. The remaining gap is
-  concentrated in device-only branches (drag-and-drop platform reads, the
-  `super_clipboard` rich-flavor plugin path, mouse-only gestures, the native
-  context menu) that need real platform channels to exercise — 100% is not
+- **95.6% line coverage** (819 tests, unit + widget), analyzer clean. The
+  remaining ~4% is concentrated in device-only branches (drag-and-drop platform
+  reads, the `super_clipboard` rich-flavor plugin path, mouse-only gestures, the
+  native context menu) that need real platform channels to exercise — 100% is not
   reachable without extensive platform mocking, so those are documented rather
   than faked.
   New this program: clipboard/drop, code-layout fallback, positions, caret-motor
