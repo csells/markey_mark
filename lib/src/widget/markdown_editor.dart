@@ -33,6 +33,7 @@ import 'controller.dart';
 import 'drop.dart';
 import 'labels.dart';
 import 'ime_delta.dart';
+import 'internal/context_menu.dart';
 
 part 'internal/editor_internals.dart';
 
@@ -207,9 +208,9 @@ class _MarkdownEditorState extends State<MarkdownEditor>
       WidgetsBinding.instance
           .addPostFrameCallback((_) => _handlesEntry?.markNeedsBuild());
     });
-    // On web, suppress the browser's own right-click menu so the editor's
-    // context menu appears instead of Chrome's. Re-enabled in dispose.
-    if (kIsWeb) BrowserContextMenu.disableContextMenu();
+    // Suppress the browser's own right-click menu on web (ref-counted) so the
+    // editor's context menu shows instead of Chrome's. Released in dispose.
+    BrowserContextMenuSuppression.acquire();
   }
 
   /// Keep the controller's preserved source caret in sync with the source field.
@@ -234,7 +235,7 @@ class _MarkdownEditorState extends State<MarkdownEditor>
     _replaceController.dispose();
     _connection?.close();
     _hideContextMenu();
-    if (kIsWeb) BrowserContextMenu.enableContextMenu();
+    BrowserContextMenuSuppression.release();
     _handlesEntry?.remove();
     _handlesEntry = null;
     _scrollController.dispose();
@@ -1229,49 +1230,27 @@ class _MarkdownEditorState extends State<MarkdownEditor>
   /// Shows the native context menu (copy/cut/paste/select-all) at [globalPos],
   /// with the items that apply to the current selection and edit mode.
   void _showContextMenu(Offset globalPos) {
+    // Focus the editor so ESC reaches our Shortcuts while the menu is open.
     _focusNode.requestFocus();
-    final hasSelection =
-        _c.selection != null && !_c.selection!.isCollapsed;
-    final items = <ContextMenuButtonItem>[
-      if (hasSelection)
-        ContextMenuButtonItem(
-          type: ContextMenuButtonType.copy,
-          onPressed: () {
-            _hideContextMenu();
-            _handleCopy();
-          },
-        ),
-      if (hasSelection && !widget.readOnly)
-        ContextMenuButtonItem(
-          type: ContextMenuButtonType.cut,
-          onPressed: () {
-            _hideContextMenu();
-            _handleCut();
-          },
-        ),
-      if (!widget.readOnly)
-        ContextMenuButtonItem(
-          type: ContextMenuButtonType.paste,
-          onPressed: () {
-            _hideContextMenu();
-            _handlePaste();
-          },
-        ),
-      ContextMenuButtonItem(
-        type: ContextMenuButtonType.selectAll,
-        onPressed: () {
-          _hideContextMenu();
-          _c.selectAll();
-        },
-      ),
-    ];
-    // Focus the editor so ESC (and other shortcuts) reach us while the menu is up.
-    _focusNode.requestFocus();
+    final items = buildContextMenuActions(
+      hasSelection: _c.selection != null && !_c.selection!.isCollapsed,
+      readOnly: widget.readOnly,
+      onDismiss: _hideContextMenu,
+      onCopy: _handleCopy,
+      onCut: _handleCut,
+      onPaste: _handlePaste,
+      onSelectAll: _c.selectAll,
+    );
     _contextMenu.show(
       context: context,
-      contextMenuBuilder: (_) => AdaptiveTextSelectionToolbar.buttonItems(
-        anchors: TextSelectionToolbarAnchors(primaryAnchor: globalPos),
-        buttonItems: items,
+      // TapRegion is Flutter's canonical "tap anywhere outside to dismiss" — no
+      // hand-rolled pointer tracking, and it covers taps outside the editor too.
+      contextMenuBuilder: (_) => TapRegion(
+        onTapOutside: (_) => _hideContextMenu(),
+        child: AdaptiveTextSelectionToolbar.buttonItems(
+          anchors: TextSelectionToolbarAnchors(primaryAnchor: globalPos),
+          buttonItems: items,
+        ),
       ),
     );
   }
@@ -1291,9 +1270,6 @@ class _MarkdownEditorState extends State<MarkdownEditor>
       (e.buttons & kPrimaryButton) != 0;
 
   void _onMousePointerDown(PointerDownEvent e) {
-    // Any pointer-down in the editor (mouse or touch) dismisses an open context
-    // menu — clicking outside it should close it.
-    _hideContextMenu();
     if (widget.readOnly || !_isPreciseDrag(e)) return;
     final hit = _blockAtGlobal(e.position);
     if (hit == null) return;
@@ -2336,7 +2312,7 @@ class _MarkdownEditorState extends State<MarkdownEditor>
           const _MoveBlockIntent(-1),
       const SingleActivator(LogicalKeyboardKey.arrowDown, alt: true):
           const _MoveBlockIntent(1),
-      const SingleActivator(LogicalKeyboardKey.escape): const _DismissSlashIntent(),
+      const SingleActivator(LogicalKeyboardKey.escape): const _DismissOverlaysIntent(),
       const SingleActivator(LogicalKeyboardKey.tab): const _CellTabIntent(true),
       const SingleActivator(LogicalKeyboardKey.tab, shift: true):
           const _CellTabIntent(false),
@@ -2464,7 +2440,7 @@ class _MarkdownEditorState extends State<MarkdownEditor>
           }
           return null;
         }),
-        _DismissSlashIntent: CallbackAction<_DismissSlashIntent>(onInvoke: (_) {
+        _DismissOverlaysIntent: CallbackAction<_DismissOverlaysIntent>(onInvoke: (_) {
           _hideContextMenu();
           if (_activeSlashQuery() != null) {
             setState(() => _slashSuppressed = true);
@@ -2520,8 +2496,11 @@ class _RedoIntent extends Intent {
   const _RedoIntent();
 }
 
-class _DismissSlashIntent extends Intent {
-  const _DismissSlashIntent();
+/// Escape: dismiss the editor's transient overlays — the context menu and the
+/// slash-command menu. (Scoped to the editor so it doesn't pop an enclosing
+/// route the way the framework's `DismissIntent` would.)
+class _DismissOverlaysIntent extends Intent {
+  const _DismissOverlaysIntent();
 }
 
 class _FindIntent extends Intent {
