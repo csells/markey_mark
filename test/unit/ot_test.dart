@@ -31,15 +31,17 @@ void main() {
   });
 
   group('transformOperation — same-node conflict', () {
-    test('the winner rebases its before onto the loser\'s result', () {
+    test('same-block edits merge character-wise (Delta OT), not LWW', () {
       final mine = ReplaceNodeOp(0, p('a', 'base'), p('a', 'MINE'));
       final theirs = ReplaceNodeOp(0, p('a', 'base'), p('a', 'theirs'));
-      // mine wins → rebased onto theirs.after so it applies cleanly.
+      // mine rebased onto theirs.after → both replacements merge.
       final t = transformOperation(mine, theirs, tieBreak: true)! as ReplaceNodeOp;
       expect((t.before as TextBlockNode).delta.toPlainText(), 'theirs');
-      expect((t.after as TextBlockNode).delta.toPlainText(), 'MINE');
-      // loser is dropped.
-      expect(transformOperation(theirs, mine, tieBreak: false), isNull);
+      expect((t.after as TextBlockNode).delta.toPlainText(), 'theirsMINE');
+      // The other direction also merges (no edit is dropped) and converges.
+      final t2 =
+          transformOperation(theirs, mine, tieBreak: false)! as ReplaceNodeOp;
+      expect((t2.after as TextBlockNode).delta.toPlainText(), 'theirsMINE');
     });
   });
 
@@ -64,14 +66,18 @@ void main() {
       expectConverges(base, a, b, aWins: true);
     });
 
-    test('concurrent edits to the same block converge to the winner', () {
+    test('concurrent edits to the same block merge and converge', () {
       final base = Document([p('a', 'base')]);
       final a = txn([ReplaceNodeOp(0, p('a', 'base'), p('a', 'AAA'))]);
       final b = txn([ReplaceNodeOp(0, p('a', 'base'), p('a', 'BBB'))]);
       expectConverges(base, a, b, aWins: true);
 
+      // Character-level OT merges both edits (deterministic tie order) instead
+      // of dropping one.
       final p1 = transformTransaction(b, a, tieBreak: false).apply(a.apply(base));
-      expect(text(p1, 0), 'AAA'); // a won
+      expect(text(p1, 0), 'BBBAAA');
+      expect(text(p1, 0), contains('AAA'));
+      expect(text(p1, 0), contains('BBB'));
     });
 
     test('concurrent deletes of the same block converge', () {
@@ -114,8 +120,9 @@ void main() {
       a.applyRemote(transformTransaction(bTxn, aTxn, tieBreak: false));
       b.applyRemote(transformTransaction(aTxn, bTxn, tieBreak: true));
 
+      // Both peers converge to the merged result (both edits preserved).
       expect(a.markdown, b.markdown);
-      expect(a.markdown, 'AAA');
+      expect(a.markdown, 'BBBAAA');
     });
   });
 }

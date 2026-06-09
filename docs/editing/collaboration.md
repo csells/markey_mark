@@ -54,9 +54,10 @@ It uses a Jupiter-style relay: each peer applies its edits optimistically; on
 `flush` every buffered op is server-transformed against the canonical ops its
 sender hadn't seen, then delivered to each other peer client-transformed against
 that peer's still-pending ops, and acknowledged to the sender. Different-block
-edits merge losslessly, and two people **typing in the same paragraph** both
-keep their characters — concurrent same-block *insertions* are merged
-character-by-character (each rebased onto the other's result by offset, with a
-site-id tie-break). Other same-block conflicts (deletes / replacements /
-formatting) fall back to last-writer-wins by site id; every peer still converges
-deterministically. A real network transport drives `flush` on receive.
+edits merge losslessly, and two people editing the **same paragraph** both keep
+their work: concurrent same-block edits — inserts, deletes, *and* formatting —
+are merged with **character-level operational transform** (`DeltaChange`, the
+retain/insert/delete change model: `diff` → `transform` → `apply`), so every
+peer converges to the same merged document. The transform is property-tested
+(500 random concurrent insert/delete/format edits always converge). A real
+network transport drives `flush` on receive.

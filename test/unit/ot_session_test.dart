@@ -41,19 +41,21 @@ void main() {
     b.dispose();
   });
 
-  test('same-block delete vs insert converges (LWW fallback)', () {
+  test('same-block delete vs insert merges and converges (Delta OT)', () {
     final a = MarkdownEditorController(markdown: 'hello');
     final b = MarkdownEditorController(markdown: 'hello');
     final session = OtCollaborationSession([a, b]);
     a.setSelection(caretAt(a, 5));
-    a.insertText('!');
+    a.insertText('!'); // "hello!"
     b.setSelection(DocumentSelection(
       base: DocumentPosition.text(b.document.nodes.first.id, 0),
       extent: DocumentPosition.text(b.document.nodes.first.id, 5),
     ));
-    b.deleteBackward(); // delete "hello" — not an insertion → LWW
+    b.deleteBackward(); // delete "hello" -> ""
     session.flush();
-    expect(text(a), text(b)); // converged (no divergence)
+    // Both intents preserved: the deletion of "hello" and the inserted "!".
+    expect(text(a), text(b));
+    expect(text(a), '!');
     session.dispose();
     a.dispose();
     b.dispose();
