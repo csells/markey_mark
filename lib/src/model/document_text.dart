@@ -9,7 +9,6 @@ class _Segment {
   final String nodeId;
   final int start;
   final int length;
-  int get end => start + length;
 }
 
 /// The unified document text stream (§13 — "one editor, not four").

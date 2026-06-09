@@ -39,6 +39,20 @@ void main() {
       expect(r.type, BlockType.horizontalRule);
       expect(r.copyWith(attributes: const {}).id, 'r');
     });
+    test('text-block factories default to an empty delta', () {
+      // Exercises the `delta ?? Delta.empty()` default in each factory.
+      expect(TextBlockNode.heading(level: 1).delta.isEmpty, isTrue);
+      expect(TextBlockNode.bullet().delta.isEmpty, isTrue);
+      expect(TextBlockNode.numbered(number: 1).delta.isEmpty, isTrue);
+      expect(TextBlockNode.todo(checked: false).delta.isEmpty, isTrue);
+      expect(TextBlockNode.quote().delta.isEmpty, isTrue);
+      expect(TextBlockNode.definitionTerm().delta.isEmpty, isTrue);
+      expect(TextBlockNode.definitionDesc().delta.isEmpty, isTrue);
+      expect(TextBlockNode.footnoteDef(label: 'a').delta.isEmpty, isTrue);
+      // copyWithDelta keeps id/type while swapping the delta.
+      final p = TextBlockNode.paragraph(id: 'p', delta: Delta.text('x'));
+      expect(p.copyWithDelta(Delta.text('y')).delta.toPlainText(), 'y');
+    });
     test('TableNode copyWith + withCell + cellText', () {
       final t = TableNode(id: 't', rows: [
         [Delta.text('a'), Delta.text('b')]
