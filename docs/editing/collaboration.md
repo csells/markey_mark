@@ -61,3 +61,19 @@ retain/insert/delete change model: `diff` → `transform` → `apply`), so every
 peer converges to the same merged document. The transform is property-tested
 (500 random concurrent insert/delete/format edits always converge). A real
 network transport drives `flush` on receive.
+
+## Network transport
+
+Transactions (and the nodes they carry, with **stable ids**) serialize to JSON
+via `CollaborationWire`, so a real transport can ferry edits between processes:
+
+```dart
+final session = TransportCollaborationSession(controller, myTransport);
+// local edits are encoded + sent; incoming edits are decoded + applied.
+```
+
+`CollaborationTransport` is the seam (`send(String)` + `Stream<String> incoming`)
+— back it with a WebSocket, WebRTC data channel, etc. `LoopbackTransportPair`
+wires two transports together for tests and same-process peers.
+`CollaborationWire.encode/decode` round-trip a full `EditTransaction` (every
+block type, selection, and tag), proven by `wire_test`.
