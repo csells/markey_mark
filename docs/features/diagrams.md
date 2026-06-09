@@ -1,0 +1,157 @@
+# Diagrams (Mermaid)
+
+Mermaid diagrams are written as a ` ```mermaid ` fenced block and are a first-class node in
+the document. Rendering is **100% native Dart — no WebView, no JavaScript anywhere.** A native
+diagram engine renders the supported types and degrades gracefully to a readable source card
+for the rest.
+
+## Flowcharts
+
+![Native flowchart](../images/mermaid-flowchart.png)
+
+````markdown
+```mermaid
+graph TD
+A[Start] --> B{Choice}
+B -->|yes| C[Do it]
+B -->|no| D[Skip]
+```
+````
+
+Supports `graph`/`flowchart` with `TD`/`LR` directions, node shapes (`[rect]`, `(rounded)`,
+`{diamond}`, `((circle))`), and labeled edges, laid out in layers.
+
+## Pie charts
+
+![Native pie chart](../images/mermaid-pie.png)
+
+````markdown
+```mermaid
+pie title Languages
+"Dart" : 70
+"YAML" : 20
+"Other" : 10
+```
+````
+
+## Sequence diagrams
+
+![Native sequence diagram](../images/mermaid-sequence.png)
+
+````markdown
+```mermaid
+sequenceDiagram
+  Alice->>Bob: Hello Bob
+  Bob-->>Alice: Hi Alice
+```
+````
+
+## State diagrams
+
+State diagrams render natively too (reusing the flowchart layout):
+
+````markdown
+```mermaid
+stateDiagram-v2
+  [*] --> Idle
+  Idle --> Running : start
+  Running --> [*]
+```
+````
+
+## Class diagrams
+
+Class diagrams render natively too — boxes with members and typed relationship markers:
+
+![Native class diagram](../images/mermaid-class.png)
+
+````markdown
+```mermaid
+classDiagram
+class Animal {
++String name
++makeSound()
+}
+Animal <|-- Dog
+Animal <|-- Cat
+```
+````
+
+Entity-relationship (`erDiagram`) diagrams render natively too, reusing the class-diagram
+boxes (entities with attributes + labeled relationships).
+
+## Gantt charts
+
+Gantt charts render natively as proportional bars grouped by section:
+
+![Native gantt chart](../images/mermaid-gantt.png)
+
+````markdown
+```mermaid
+gantt
+title Roadmap
+section Build
+Spec : 2024-01-01, 10d
+Code : 2024-01-11, 20d
+```
+````
+
+## User journeys
+
+User-journey diagrams render natively as a satisfaction line (scores 1–5) with
+one point per task, coloured by the first actor and grouped into sections, plus
+an actor legend:
+
+````markdown
+```mermaid
+journey
+title My working day
+section Go to work
+  Make tea: 5: Me
+  Do work: 1: Me, Cat
+section Go home
+  Sit down: 3: Me
+```
+````
+
+## Timelines
+
+Timeline diagrams render natively as period chips laid out left-to-right, each
+with its events listed beneath, grouped into sections when present:
+
+````markdown
+```mermaid
+timeline
+title History of Social Media
+2002 : LinkedIn
+2004 : Facebook : Google
+2005 : YouTube
+```
+````
+
+## Mindmaps
+
+Mindmaps render natively as an indented tree (indentation defines the
+hierarchy), with shape decorations like `((circle))`, `[square]` and `(round)`
+stripped to their text:
+
+````markdown
+```mermaid
+mindmap
+  root((Ideas))
+    Origins
+      Long history
+    Research
+      On effectiveness
+```
+````
+
+## Other types
+
+Remaining diagram types the native engine doesn't yet support degrade
+gracefully to a readable **source card** with a `mermaid` badge:
+
+![Mermaid source-card fallback](../images/mermaid.png)
+
+You can also plug in your own renderer via the `diagramRenderer` parameter of
+`MarkdownEditor`.

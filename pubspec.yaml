@@ -1,0 +1,31 @@
+name: markey_mark
+description: >-
+  A from-scratch, fully native, cross-platform WYSIWYG Markdown editor for Flutter.
+  Google-Docs feel, Markdown as the source of truth, switchable WYSIWYG/source modes.
+  No WebView, no JavaScript — 100% native Flutter.
+version: 0.0.1
+publish_to: none
+repository: https://github.com/csells/markey_mark
+
+environment:
+  sdk: ">=3.5.0 <4.0.0"
+  flutter: ">=3.24.0"
+
+dependencies:
+  flutter:
+    sdk: flutter
+  # Tokenizing Markdown parser. We add custom syntaxes and own the serializer.
+  markdown: ^7.3.0
+  meta: ^1.15.0
+  # Grapheme-cluster aware cursor movement (UTF-16 safety).
+  characters: ^1.3.0
+  flutter_math_fork: ^0.7.4
+  super_clipboard: ^0.9.1
+  super_drag_and_drop: ^0.9.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^5.0.0
+
+flutter: {}

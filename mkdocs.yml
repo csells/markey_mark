@@ -1,0 +1,71 @@
+site_name: markey_mark
+site_description: A native, cross-platform WYSIWYG Markdown editor for Flutter.
+repo_url: https://github.com/csells/markey_mark
+repo_name: csells/markey_mark
+docs_dir: docs
+
+theme:
+  name: material
+  palette:
+    - scheme: default
+      primary: indigo
+      toggle:
+        icon: material/weather-night
+        name: Dark mode
+    - scheme: slate
+      primary: indigo
+      toggle:
+        icon: material/weather-sunny
+        name: Light mode
+  features:
+    - navigation.sections
+    - navigation.top
+    - content.code.copy
+    - search.suggest
+
+markdown_extensions:
+  - admonition
+  - tables
+  - fenced_code
+  - toc:
+      permalink: true
+
+nav:
+  - Home: index.md
+  - Getting started: getting-started.md
+  - Features:
+      - Headings: features/headings.md
+      - Text formatting: features/formatting.md
+      - Lists: features/lists.md
+      - Task lists: features/tasks.md
+      - Block quotes: features/quotes.md
+      - Callouts (alerts): features/callouts.md
+      - Code blocks: features/code-blocks.md
+      - Tables: features/tables.md
+      - Math: features/math.md
+      - Diagrams: features/diagrams.md
+      - Images: features/images.md
+      - Links: features/links.md
+      - Emoji: features/emoji.md
+      - Front matter: features/front-matter.md
+      - Definition lists: features/definition-lists.md
+      - Footnotes: features/footnotes.md
+  - Editing:
+      - Markdown input rules: editing/input-rules.md
+      - Slash command menu: editing/slash-menu.md
+      - Source mode: editing/source-mode.md
+      - Keyboard shortcuts: editing/keyboard-shortcuts.md
+      - Find & replace: editing/find-replace.md
+      - Clipboard: editing/clipboard.md
+      - Context menu: editing/context-menu.md
+      - Drag & drop: editing/drag-and-drop.md
+      - Undo & redo: editing/undo-redo.md
+      - Document statistics: editing/document-stats.md
+      - HTML export: editing/html-export.md
+      - PDF export: editing/pdf-export.md
+      - Real-time collaboration: editing/collaboration.md
+  - Reference:
+      - Architecture: architecture.md
+      - Accessibility: accessibility.md
+      - Plugin authoring: plugin-authoring.md
+      - Contributing docs: contributing-docs.md

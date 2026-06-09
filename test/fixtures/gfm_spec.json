@@ -1,0 +1,122 @@
+[
+{
+"markdown": "| abc | def |\n| --- | --- |\n| ghi | jkl |\n| mno | pqr |\n",
+"section": "GFM"
+},
+{
+"markdown": "Hello!\n\n| _abc_ | \u30bb\u30f3 |\n| ----- | ---- |\n| 1. Block elements inside cells don't work. | |\n| But _**inline elements do**_. | x |\n\nHi!\n",
+"section": "GFM"
+},
+{
+"markdown": "| Not enough table | to be considered table |\n\n| Not enough table | to be considered table |\n| Not enough table | to be considered table |\n\n| Just enough table | to be considered table |\n| ----------------- | ---------------------- |\n\n| ---- | --- |\n\n|x|\n|-|\n\n| xyz |\n| --- |\n",
+"section": "GFM"
+},
+{
+"markdown": "abc | def\n--- | ---\nxyz | ghi\n",
+"section": "GFM"
+},
+{
+"markdown": "Hello!\n\n| _abc_ | \u30bb\u30f3 |\n| ----- | ---- |\n| this row has a space at the end | | \n| But _**inline elements do**_. | x |\n\nHi!\n",
+"section": "GFM"
+},
+{
+"markdown": "aaa | bbb | ccc | ddd | eee\n:-- | --- | :-: | --- | --:\nfff | ggg | hhh | iii | jjj\n",
+"section": "GFM"
+},
+{
+"markdown": "| a | b | c |\n| --- | --- |\n| this | isn't | okay |\n",
+"section": "GFM"
+},
+{
+"markdown": "| a | b | c |\n| --- | --- | ---\n| x\n| a | b\n| 1 | 2 | 3 | 4 | 5 |\n",
+"section": "GFM"
+},
+{
+"markdown": "| a | b |\n| --- | --- |\n| Escaped pipes are \\|okay\\|. | Like \\| this. |\n| Within `\\|code\\| is okay` too. |\n| _**`c\\|`**_ \\| complex\n| don't **\\_reparse\\_**\n",
+"section": "GFM"
+},
+{
+"markdown": "| a |\n--- |\n",
+"section": "GFM"
+},
+{
+"markdown": "| a | b |\n| --- | --- |\n| \\\\ | `\\\\` |\n| \\\\\\\\ | `\\\\\\\\` |\n| \\_ | `\\_` |\n| \\| | `\\|` |\n| \\a | `\\a` |\n\n\\\\ `\\\\`\n\n\\\\\\\\ `\\\\\\\\`\n\n\\_ `\\_`\n\n\\| `\\|`\n\n\\a `\\a`\n",
+"section": "GFM"
+},
+{
+"markdown": "| a |\n| --- |\n| <strong>hello</strong> |\n| ok <br> sure |\n",
+"section": "GFM"
+},
+{
+"markdown": "Here's a link to [Freedom Planet 2][].\n\n| Here's a link to [Freedom Planet 2][] in a table header. |\n| --- |\n| Here's a link to [Freedom Planet 2][] in a table row. |\n\n[Freedom Planet 2]: http://www.freedomplanet2.com/\n",
+"section": "GFM"
+},
+{
+"markdown": "| a | b | c |\n| --- | --- | --- |\n| d || e |\n",
+"section": "GFM"
+},
+{
+"markdown": "| a | b |\n| --- | --- |\n|***(a)***|\n",
+"section": "GFM"
+},
+{
+"markdown": "123\n456\n| a | b |\n| ---| --- |\nd | e\n",
+"section": "GFM"
+},
+{
+"markdown": "A proper ~strikethrough~.\n",
+"section": "GFM"
+},
+{
+"markdown": "These are ~not strikethroughs.\n\nNo, they are not~\n\nThis ~is ~ legit~ isn't ~ legit.\n\nThis is not ~~~~~one~~~~~ huge strikethrough.\n\n~one~ ~~two~~ ~~~three~~~\n\nNo ~mismatch~~\n",
+"section": "GFM"
+},
+{
+"markdown": ": http://google.com https://google.com\n\n<http://google.com/\u00e5> http://google.com/\u00e5\n\nscyther@pokemon.com\n\nscy.the_rbe-edr+ill@pokemon.com\n\nscyther@pokemon.com.\n\nscyther@pokemon.com/\n\nscyther@pokemon.com/beedrill@pokemon.com\n\nmailto:scyther@pokemon.com\n\nThis is a mailto:scyther@pokemon.com\n\nmailto:scyther@pokemon.com.\n\nmmmmailto:scyther@pokemon.com\n\nmailto:scyther@pokemon.com/\n\nmailto:scyther@pokemon.com/message\n\nmailto:scyther@pokemon.com/mailto:beedrill@pokemon.com\n\nxmpp:scyther@pokemon.com\n\nxmpp:scyther@pokemon.com.\n\nxmpp:scyther@pokemon.com/message\n\nxmpp:scyther@pokemon.com/message.\n\nEmail me at:scyther@pokemon.com\n\nwww.github.com www.github.com/\u00e1\n\nwww.google.com/a_b\n\nUnderscores not allowed in host name www.xxx.yyy._zzz\n\nUnderscores not allowed in host name www.xxx._yyy.zzz\n\nUnderscores allowed in domain name www._xxx.yyy.zzz\n\n**Autolink and http://inlines**\n\n![http://inline.com/image](http://inline.com/image)\n\na.w@b.c\n\nFull stop outside parens shouldn't be included http://google.com/ok.\n\n(Full stop inside parens shouldn't be included http://google.com/ok.)\n\n\"http://google.com\"\n\n'http://google.com'\n\nhttp://\ud83c\udf44.ga/ http://x\ud83c\udf44.ga/\n",
+"section": "GFM"
+},
+{
+"markdown": "This shouldn't crash everything: (_A_@_.A\n",
+"section": "GFM"
+},
+{
+"markdown": "These should not link:\n\n* @a.b.c@. x\n* n@.  b\n",
+"section": "GFM"
+},
+{
+"markdown": "This is <xmp> not okay, but **this** <strong>is</strong>.\n\n<p>This is <xmp> not okay, but **this** <strong>is</strong>.</p>\n\nNope, I won't have <textarea>.\n\n<p>No <textarea> here either.</p>\n\n<p>This <random /> <thing> is okay</thing> though.</p>\n\nYep, <totally>okay</totally>.\n\n<!-- HTML comments are okay, though. -->\n<!- But we're strict. ->\n<! No nonsense. >\n<!-- Leave multiline comments the heck alone, though, okay?\nEven with {\"x\":\"y\"} or 1 > 2 or whatever. Even **markdown**.\n-->\n<!--- Support everything CommonMark's parser does. -->\n<!---->\n<!--thistoo-->\n",
+"section": "GFM"
+},
+{
+"markdown": "This is some text![^1]. Other text.[^footnote].\n\nHere's a thing[^other-note].\n\nAnd another thing[^codeblock-note].\n\nThis doesn't have a referent[^nope].\n\n\n[^other-note]:       no code block here (spaces are stripped away)\n\n[^codeblock-note]:\n        this is now a code block (8 spaces indentation)\n\n[^1]: Some *bolded* footnote definition.\n\nHi!\n\n[^footnote]:\n    > Blockquotes can be in a footnote.\n\n        as well as code blocks\n\n    or, naturally, simple paragraphs.\n\n[^unused]: This is unused.\n",
+"section": "GFM"
+},
+{
+"markdown": "This is some text. It has a footnote[^a-footnote].\n\nThis footnote is referenced[^a-footnote] multiple times, in lots of different places.[^a-footnote]\n\n[^a-footnote]: This footnote definition should have three backrefs.\n",
+"section": "GFM"
+},
+{
+"markdown": "Hello[^\"><script>alert(1)</script>]\n\n[^\"><script>alert(1)</script>]: pwned\n",
+"section": "GFM"
+},
+{
+"markdown": "~~www.google.com~~\n\n~~http://google.com~~\n",
+"section": "GFM"
+},
+{
+"markdown": "| a | b |\n| --- | --- |\n| https://github.com www.github.com | http://pokemon.com |\n",
+"section": "GFM"
+},
+{
+"markdown": "- [ ] foo\n- [x] bar\n",
+"section": "GFM"
+},
+{
+"markdown": "- [x] foo\n  - [ ] bar\n  - [x] baz\n- [ ] bim\n\nShow a regular (non task) list to show that it has the same structure\n- [@] foo\n  - [@] bar\n  - [@] baz\n- [@] bim\n",
+"section": "GFM"
+},
+{
+"markdown": "- [x] foo\n    - [ ] bar\n    - [x] baz\n- [ ] bim\n\nShow a regular (non task) list to show that it has the same structure\n- [@] foo\n    - [@] bar\n    - [@] baz\n- [@] bim\n",
+"section": "GFM"
+}
+]
