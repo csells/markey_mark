@@ -15,7 +15,6 @@ import '../editing/caret_motor.dart';
 import '../editing/search.dart';
 import '../model/attributes.dart';
 import '../model/delta.dart';
-import '../model/document.dart';
 import '../model/document_text.dart';
 import '../model/node.dart';
 import '../model/position.dart';
@@ -423,40 +422,7 @@ class _MarkdownEditorState extends State<MarkdownEditor>
   /// keystroke costs O(active block), not O(document) (cf. CodeMirror/ProseMirror
   /// local-change model; super_editor's selected-node IME serialization).
   /// Returns null when the selection has no editable block (e.g. an image).
-  DocumentText? _imeWindow() {
-    final doc = _c.document;
-    bool editable(Node n) => n is TextBlockNode || n is CodeBlockNode;
-    final sel = _c.selection;
-    int lo, hi;
-    if (sel == null) {
-      lo = hi = 0;
-    } else {
-      final iBase = doc.indexOfId(sel.base.nodeId);
-      final iExt = doc.indexOfId(sel.extent.nodeId);
-      if (iBase < 0 || iExt < 0) {
-        lo = hi = 0;
-      } else {
-        lo = iBase < iExt ? iBase : iExt;
-        hi = iBase < iExt ? iExt : iBase;
-      }
-    }
-    // Include one editable neighbor on each side so backspace-at-start merges
-    // with the previous block and Enter-splits flow into the next — without
-    // pulling in the whole document (latency stays O(selection span + 2)).
-    final from = (lo - 1).clamp(0, doc.length - 1);
-    final to = (hi + 1).clamp(0, doc.length - 1);
-    final window = <Node>[
-      for (var i = from; i <= to; i++)
-        if (editable(doc.nodeAt(i))) doc.nodeAt(i),
-    ];
-    if (window.isEmpty) {
-      // Fall back to the first editable block so an empty doc still types.
-      final first = doc.length > 0 ? doc.nodeAt(0) : null;
-      if (first != null && editable(first)) window.add(first);
-    }
-    if (window.isEmpty) return null;
-    return DocumentText.of(Document(window));
-  }
+  DocumentText? _imeWindow() => imeWindow(_c.document, _c.selection);
 
   TextBlockNode? get _activeBlock {
     final sel = _c.selection;
