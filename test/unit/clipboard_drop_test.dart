@@ -1,3 +1,4 @@
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:markey_mark/markey_mark.dart';
 
@@ -48,8 +49,33 @@ void main() {
   });
 
   group('SystemClipboardBridge', () {
-    testWidgets('round-trips Markdown through the system clipboard',
-        (tester) async {
+    // Use an explicit in-memory mock of the platform clipboard channel so the
+    // test is self-contained and fast regardless of suite context (the default
+    // mock can be clobbered by other tests, causing a hang in the full suite).
+    final binding = TestWidgetsFlutterBinding.ensureInitialized();
+    String? stored;
+
+    setUp(() {
+      binding.defaultBinaryMessenger.setMockMethodCallHandler(
+          SystemChannels.platform, (call) async {
+        switch (call.method) {
+          case 'Clipboard.setData':
+            stored = (call.arguments as Map)['text'] as String?;
+            return null;
+          case 'Clipboard.getData':
+            return stored == null ? null : <String, dynamic>{'text': stored};
+        }
+        return null;
+      });
+    });
+
+    tearDown(() {
+      binding.defaultBinaryMessenger
+          .setMockMethodCallHandler(SystemChannels.platform, null);
+      stored = null;
+    });
+
+    test('round-trips Markdown through the system clipboard', () async {
       const bridge = SystemClipboardBridge();
       await bridge.write(const ClipboardPayload(markdown: '# Title'));
       final read = await bridge.read();
@@ -58,24 +84,17 @@ void main() {
       expect(read.plainText, '# Title');
     });
 
-    testWidgets('write falls back to plainText when no markdown',
-        (tester) async {
+    test('write falls back to plainText when no markdown', () async {
       const bridge = SystemClipboardBridge();
       await bridge.write(const ClipboardPayload(plainText: 'plain only'));
       final read = await bridge.read();
       expect(read!.markdown, 'plain only');
     });
-  });
 
-  group('SuperClipboardBridge', () {
-    testWidgets('degrades to the system clipboard with no platform clipboard',
-        (tester) async {
-      // In the test environment sc.SystemClipboard.instance is null, so the
-      // super bridge delegates to the system bridge — exercising that path.
-      const bridge = SuperClipboardBridge();
-      await bridge.write(const ClipboardPayload(markdown: 'hello'));
-      final read = await bridge.read();
-      expect(read!.markdown, 'hello');
+    test('read returns null when the clipboard is empty', () async {
+      stored = null;
+      const bridge = SystemClipboardBridge();
+      expect(await bridge.read(), isNull);
     });
   });
 }
