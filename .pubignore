@@ -1,6 +1,36 @@
-# Exclude repo-only material from the published pub.dev archive. These are the
-# design specs and the documentation site (built/served from the repo, not
-# needed by package consumers). Keeping `docs/` out of the package also avoids
-# pub's "rename top-level docs to doc" lint.
+# pub uses this file INSTEAD of .gitignore in the directory it lives in, so it
+# must re-list the build/cache artifacts the root .gitignore normally excludes —
+# otherwise they get swept into the published archive (e.g. example/build).
+
+# Build & tool caches.
+build/
+.dart_tool/
+example/build/
+example/.dart_tool/
+example/pubspec.lock
+example/*.iml
+
+# Repo-only material: design specs and the documentation site (built/served from
+# the repo, not needed by consumers). Keeping docs/ out also avoids pub's
+# "rename top-level docs to doc" lint.
 docs/
 specs/
+
+# The example's per-platform scaffolding stays in the repo (so the demo builds on
+# all six platforms) but isn't needed in the published package — example/lib and
+# example/pubspec.yaml are enough for the pub.dev example tab.
+example/android/
+example/ios/
+example/linux/
+example/macos/
+example/windows/
+example/web/
+
+# AI-agent tooling: shared instructions and the project skill tree. Useful in the
+# repo, irrelevant to package consumers.
+.claude/
+.agents/
+.gemini/
+AGENTS.md
+CLAUDE.md
+GEMINI.md

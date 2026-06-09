@@ -42,4 +42,4 @@ scale invalidates the layout caches, so it takes effect immediately.
 Because the content is custom-rendered, these semantics are added deliberately (a plain
 `CustomPaint` exposes nothing by default). See the design spec's cross-platform and
 feature-feasibility notes, and
-[caret-selection-and-input](../architecture.md) for the full motor design.
+the [architecture overview](architecture.md) for the full motor design.

@@ -1,6 +1,5 @@
-# Reference copy for the docs. The live workflow that GitHub Actions runs is
-# .github/workflows/docs.yml — keep the two in sync when editing.
-#
+name: Docs
+
 # Publish the MkDocs site to GitHub Pages. This is a *static* build: it renders
 # the committed docs/ (including the committed docs/images/*.png screenshots)
 # with mkdocs — no Flutter, no screenshot regeneration. Screenshots are a
@@ -8,8 +7,6 @@
 # (see docs/contributing-docs.md and the sync-docs project skill), so the image
 # you reviewed in a PR is exactly what ships. That keeps this workflow fast and
 # deterministic, and only republishes when docs actually change.
-name: Docs
-
 on:
   push:
     branches: [main]

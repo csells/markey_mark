@@ -30,7 +30,9 @@ mkdocs build     # output to ./site
 
 ## Publishing
 
-The GitHub Actions workflow that builds and deploys the site to GitHub Pages is provided as a
-template at `docs/ci/github-pages-docs.yml`. Copy it to `.github/workflows/docs.yml` in the
-repo (it lives under `docs/` here because the bot that authors these changes can't create
-workflow files directly). Once added, new features become published docs automatically.
+`.github/workflows/docs.yml` builds the site with MkDocs and deploys it to GitHub Pages on
+every push to `main` that touches `docs/` or `mkdocs.yml`. It is a **static build** — it
+renders the committed `docs/` (screenshots included) and does **not** regenerate images. So a
+screenshot is published exactly as committed; regenerate it (above) when the feature it shows
+changes, and commit the new PNG. (`docs/ci/github-pages-docs.yml` is a reference copy of the
+live workflow.)
