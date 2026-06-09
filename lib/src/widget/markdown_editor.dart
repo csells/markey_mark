@@ -784,9 +784,12 @@ class _MarkdownEditorState extends State<MarkdownEditor>
 
   @override
   void performAction(TextInputAction action) {
-    if (action == TextInputAction.newline) {
-      _c.splitBlock();
-    }
+    // Deliberately do NOT split on TextInputAction.newline. For a multiline
+    // field the newline arrives as a '\n' text delta (handled in
+    // _applyStreamEdit on every platform), and the web engine ALSO fires
+    // performAction(newline) for the same keypress — so splitting here too
+    // double-splits on web (one Enter -> two blocks). This mirrors Flutter's
+    // own EditableText, which ignores the newline action for multiline inputs.
   }
 
   @override

@@ -125,6 +125,32 @@ void main() {
     await tester.pumpWidget(const SizedBox());
   });
 
+  testWidgets(
+      'web double-dispatch: one Enter splits exactly once even when both the '
+      'newline delta and performAction(newline) arrive', (tester) async {
+    final (c, client) = await pump(tester, 'aaabbb');
+    // The web engine delivers BOTH the '\n' text delta AND
+    // performAction(newline) for a single Enter keypress (native sends only the
+    // delta). The editor must split exactly once regardless. Before the fix the
+    // action was also handled, so web produced two splits (an empty block) per
+    // Enter — "every newline gives two lines".
+    client.updateEditingValueWithDeltas(const [
+      TextEditingDeltaInsertion(
+        oldText: 'aaabbb',
+        textInserted: '\n',
+        insertionOffset: 3,
+        selection: TextSelection.collapsed(offset: 4),
+        composing: TextRange.empty,
+      ),
+    ]);
+    client.performAction(TextInputAction.newline);
+    await tester.pump();
+    expect(c.document.length, 2); // exactly one split, not two
+    expect((c.document.nodes[0] as TextBlockNode).delta.toPlainText(), 'aaa');
+    expect((c.document.nodes[1] as TextBlockNode).delta.toPlainText(), 'bbb');
+    await tester.pumpWidget(const SizedBox());
+  });
+
   testWidgets('composing-only delta keeps the text and tracks composition',
       (tester) async {
     final (c, client) = await pump(tester, 'abc');

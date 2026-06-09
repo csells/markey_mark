@@ -28,8 +28,14 @@ flutter test --name "substring of test name" # a single test by name
 flutter test --tags golden                   # golden image comparison (excluded from default run)
 flutter test --tags screenshots              # regenerates docs images (excluded from default run)
 flutter test --coverage                      # writes coverage/lcov.info
+flutter test --platform chrome test/unit test/widget  # run the UI suite compiled to JS (web) — catches web-only bugs
 dart format lib test                         # NOTE: not gated in CI (predates Dart 3.7 "tall" formatter)
 ```
+
+Tests run on the Dart VM by default, which hides JavaScript-only bugs (e.g. `1 << 32`
+wrapping to 0 on web). The `--platform chrome` run above compiles the suite to JS and runs it
+in headless Chrome. Tests that need `dart:io` (pixel capture, corpus fixture loaders) are
+tagged `@TestOn('vm')` so they're skipped in the browser.
 
 Run the demo app from `example/`: `cd example && flutter run`.
 
@@ -101,5 +107,7 @@ pattern: a pure `parse*` function + a `*View` widget. Custom blocks go through `
 - Tests are organized as `test/unit/`, `test/widget/`, `test/integration/`, `test/golden/`,
   `test/property/` (round-trip property tests), and `test/corpus/` (CommonMark/GFM spec
   fixtures). When adding a feature, add round-trip/corpus coverage alongside unit/widget tests.
-- CI (`docs/ci/ci.yml`) runs analyze + tests + goldens on Ubuntu/macOS/Windows, builds the
-  example for web (proving the no-JS-interop constraint holds), and runs a pub publish dry-run.
+- CI (`.github/workflows/ci.yml`; reference copy in `docs/ci/ci.yml`) is a single Ubuntu job:
+  analyze, the full suite incl. goldens, the unit+widget suite **compiled to JS in headless
+  Chrome** (`--platform chrome`) to catch web-only bugs, the example web build (no-JS-interop
+  proof), and a pub publish dry-run. The Pages docs site publishes via `.github/workflows/docs.yml`.
