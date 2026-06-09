@@ -1,3 +1,6 @@
+@TestOn('vm') // loads corpus fixtures from disk via dart:io; can't run in a browser
+library;
+
 import 'dart:convert';
 import 'dart:io';
 

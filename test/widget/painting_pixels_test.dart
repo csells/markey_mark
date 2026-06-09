@@ -1,3 +1,6 @@
+@TestOn('vm') // captures pixels to a file via dart:io; can't run in a browser
+library;
+
 import 'dart:io';
 import 'dart:ui' as ui;
 
